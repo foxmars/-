@@ -1,0 +1,10 @@
+{
+  "name": "neon-brawl-online-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WebSocket room server for Neon Brawl",
+  "scripts": {
+    "start": "node server.cjs"
+  },
+  "engines": { "node": ">=20" }
+}

@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: neon-brawl
+    runtime: node
+    plan: starter
+    region: singapore
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    numInstances: 1
