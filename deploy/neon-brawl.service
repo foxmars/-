@@ -1,0 +1,23 @@
+[Unit]
+Description=Neon Brawl web and room server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/neon-brawl
+Environment=NODE_ENV=production
+Environment=PORT=8787
+Environment=HOST=127.0.0.1
+ExecStart=/usr/bin/node /home/ubuntu/neon-brawl/server.cjs
+Restart=always
+RestartSec=3
+StartLimitIntervalSec=0
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

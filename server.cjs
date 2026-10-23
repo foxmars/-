@@ -8,6 +8,7 @@ const { EventEmitter } = require('node:events');
 
 const root = path.join(__dirname, 'dist');
 const port = Number(process.env.PORT || 8787);
+const host = process.env.HOST || '0.0.0.0';
 const rooms = new Map();
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
 const alphabet = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -288,5 +289,5 @@ webSockets.on('connection', client => {
 
 server.keepAliveTimeout = 65_000;
 server.headersTimeout = 66_000;
-server.listen(port, '0.0.0.0', () => console.log(`Neon Brawl server listening on ${port}`));
+server.listen(port, host, () => console.log(`Neon Brawl server listening on ${host}:${port}`));
 server.on('close', () => clearInterval(heartbeat));
