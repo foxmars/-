@@ -9,6 +9,7 @@ const { EventEmitter } = require('node:events');
 const root = path.join(__dirname, 'dist');
 const port = Number(process.env.PORT || 8787);
 const host = process.env.HOST || '0.0.0.0';
+const maxWebSocketPayload = 32_768;
 const rooms = new Map();
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
 const alphabet = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -39,9 +40,10 @@ class WebSocketPeer extends EventEmitter {
       } else if (length === 127) {
         if (this.buffer.length < 10) return;
         const bigLength = this.buffer.readBigUInt64BE(2);
-        if (bigLength > 1_048_576n) { this.socket.destroy(); return; }
+        if (bigLength > BigInt(maxWebSocketPayload)) { this.socket.destroy(); return; }
         length = Number(bigLength); offset = 10;
       }
+      if (!masked || length > maxWebSocketPayload) { this.socket.destroy(); return; }
       const maskOffset = masked ? 4 : 0;
       if (this.buffer.length < offset + maskOffset + length) return;
       const mask = masked ? this.buffer.subarray(offset, offset + 4) : null;
@@ -242,7 +244,9 @@ function handleMessage(socket, data) {
 }
 
 const server = http.createServer((request, response) => {
-  const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
+  let pathname;
+  try { pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname); }
+  catch { response.writeHead(400); response.end('Bad request'); return; }
   if (pathname === '/health') {
     response.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
     response.end('ok');
@@ -260,7 +264,10 @@ const server = http.createServer((request, response) => {
 
 const webSockets = new WebSocketServer({ noServer: true, maxPayload: 32768, perMessageDeflate: false });
 server.on('upgrade', (request, socket, head) => {
-  if (new URL(request.url, 'http://localhost').pathname !== '/ws') { socket.write('HTTP/1.1 404 Not Found\r\n\r\n'); socket.destroy(); return; }
+  let pathname;
+  try { pathname = new URL(request.url, 'http://localhost').pathname; }
+  catch { socket.destroy(); return; }
+  if (pathname !== '/ws') { socket.write('HTTP/1.1 404 Not Found\r\n\r\n'); socket.destroy(); return; }
   webSockets.handleUpgrade(request, socket, head, client => webSockets.emit('connection', client, request));
 });
 
