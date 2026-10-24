@@ -67,12 +67,12 @@ function frameInputPacket(frames) {
   const channel = onlineState.dataChannel;
   // Unordered, unreliable datagrams avoid waiting behind stale inputs.
   if (channel?.readyState === 'open' && channel.bufferedAmount < 4096) channel.send(JSON.stringify(frames));
-  else {
-    const fresh = frames.filter(([frame]) => frame > onlineState.lastRelayedFrame);
-    if (fresh.length) {
-      sendRoomMessage({ type: 'frameInputs', frames: fresh });
-      onlineState.lastRelayedFrame = fresh[fresh.length - 1][0];
-    }
+  // Relay each new frame in parallel. If the direct path silently drops a
+  // packet, the reliable WebSocket copy prevents lockstep from stalling.
+  const fresh = frames.filter(([frame]) => frame > onlineState.lastRelayedFrame);
+  if (fresh.length && onlineState.socket?.readyState === WebSocket.OPEN) {
+    sendRoomMessage({ type: 'frameInputs', frames: fresh });
+    onlineState.lastRelayedFrame = fresh[fresh.length - 1][0];
   }
 }
 function adaptInputDelay(rttMs) {
