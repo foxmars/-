@@ -161,5 +161,10 @@ main{width:100%;max-width:none;margin:0;padding:14px clamp(10px,1.2vw,28px) 16px
 .classroom-opponent{display:flex;align-items:center;gap:7px;margin-top:10px;font-size:12px;color:#b6c9de}
 .classroom-opponent button{min-height:32px;padding:4px 12px;font-size:11px}.classroom-opponent button.selected{border-color:#77d6ff;background:#1b435d;color:#ddf7ff}
 #classroom-status{margin:6px 0 0!important;font-size:11px!important;color:#91c9df!important}
+/* Keep combat values visible when the arena extends below the browser viewport. */
+.scores{top:68px;bottom:auto;z-index:2}
+#network-status{top:152px}
+#range-hud{top:152px}
+@media(max-width:700px){.scores{top:40px}#network-status{top:108px}#range-hud{top:108px}}
 @media(max-width:1200px){.classroom-editor{grid-template-columns:repeat(3,minmax(0,1fr))}.classroom-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:700px){.classroom-panel{padding:7px}.classroom-head{flex-direction:column;gap:1px}.classroom-editor{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.classroom-editor-actions{grid-column:1/-1}.classroom-versus{grid-template-columns:1fr;gap:7px}.classroom-cards{grid-template-columns:repeat(3,minmax(0,1fr));max-height:145px}.classroom-card{min-height:68px}.classroom-card small{font-size:8px}}
