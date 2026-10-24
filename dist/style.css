@@ -183,3 +183,5 @@ main{width:100%;max-width:none;margin:0;padding:14px clamp(10px,1.2vw,28px) 16px
   .action-shield{grid-column:2;grid-row:2}
   .action-ultimate{grid-column:3;grid-row:2}
 }
+/* Use the available desktop width; combat values remain pinned at the visible top of the arena. */
+@media (min-width:701px){main{width:100%;max-width:1600px;margin-inline:auto}}
