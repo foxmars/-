@@ -168,3 +168,18 @@ main{width:100%;max-width:none;margin:0;padding:14px clamp(10px,1.2vw,28px) 16px
 @media(max-width:700px){.scores{top:40px}#network-status{top:108px}#range-hud{top:108px}}
 @media(max-width:1200px){.classroom-editor{grid-template-columns:repeat(3,minmax(0,1fr))}.classroom-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:700px){.classroom-panel{padding:7px}.classroom-head{flex-direction:column;gap:1px}.classroom-editor{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.classroom-editor-actions{grid-column:1/-1}.classroom-versus{grid-template-columns:1fr;gap:7px}.classroom-cards{grid-template-columns:repeat(3,minmax(0,1fr));max-height:145px}.classroom-card{min-height:68px}.classroom-card small{font-size:8px}}
+/* Fit the entire arena into shorter desktop browser windows. */
+@media (min-width:701px){main{max-width:min(1320px,calc(160dvh - 170px));padding:12px 16px}header{margin-bottom:10px}footer{padding:10px 0}}
+/* Keep phone controls within one compact row beside the joystick. */
+@media (pointer:coarse) and (max-width:700px){
+  .touch{gap:8px;margin:8px 0 0;align-items:center}
+  .joystick{width:clamp(88px,25vw,116px);height:clamp(88px,25vw,116px)}
+  .touch-actions{flex:1;max-width:320px;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,50px);gap:6px}
+  .touch-actions button{min-height:0;padding:3px;font-size:12px;border-radius:12px}
+  .action-jump{grid-column:1;grid-row:1}
+  .action-attack{grid-column:2;grid-row:1}
+  .action-heavy{grid-column:3;grid-row:1}
+  .action-crouch{grid-column:1;grid-row:2}
+  .action-shield{grid-column:2;grid-row:2}
+  .action-ultimate{grid-column:3;grid-row:2}
+}
