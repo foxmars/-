@@ -318,3 +318,42 @@ const mobileMatchOverlay=document.querySelector('#overlay');
 function syncMobileMatchLayout(){document.body.classList.toggle('match-active',mobileMatchOverlay.hidden);}
 new MutationObserver(syncMobileMatchLayout).observe(mobileMatchOverlay,{attributes:true,attributeFilter:['hidden']});
 syncMobileMatchLayout();
+
+// Fullscreen and orientation locking require a direct tap in many mobile browsers.
+const landscapeButton=document.createElement('button');
+landscapeButton.id='landscape-button';
+landscapeButton.type='button';
+landscapeButton.textContent='横屏';
+landscapeButton.setAttribute('aria-label','切换到横屏');
+document.body.append(landscapeButton);
+let matchFullscreenOwned=false;
+let landscapeHintTimer;
+function showLandscapeHint(message){
+  landscapeButton.textContent=message;
+  clearTimeout(landscapeHintTimer);
+  landscapeHintTimer=setTimeout(()=>{landscapeButton.textContent='横屏';},4500);
+}
+async function requestMatchLandscape(){
+  if(!matchMedia('(pointer:coarse)').matches)return;
+  try{
+    if(!document.fullscreenElement&&document.documentElement.requestFullscreen){
+      await document.documentElement.requestFullscreen();
+      matchFullscreenOwned=true;
+    }
+    if(typeof screen.orientation?.lock!=='function')throw new Error('orientation lock unavailable');
+    await screen.orientation.lock('landscape');
+    landscapeButton.textContent='横屏';
+  }catch{
+    showLandscapeHint('请手动旋转手机');
+  }
+}
+$('#start').addEventListener('click',requestMatchLandscape,{capture:true});
+landscapeButton.addEventListener('click',requestMatchLandscape);
+new MutationObserver(()=>{
+  if(!mobileMatchOverlay.hidden&&state!=='paused'){
+    try{screen.orientation?.unlock?.();}catch{}
+    if(matchFullscreenOwned&&document.fullscreenElement){document.exitFullscreen().catch(()=>{});}
+    matchFullscreenOwned=false;
+  }
+}).observe(mobileMatchOverlay,{attributes:true,attributeFilter:['hidden']});
+document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement)matchFullscreenOwned=false;});

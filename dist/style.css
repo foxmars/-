@@ -237,3 +237,7 @@ main{width:100%;max-width:none;margin:0;padding:14px clamp(10px,1.2vw,28px) 16px
   body.match-active .fighter b{font-size:18px}
   body.match-active .fighter em{font-size:8px}
 }
+#landscape-button{display:none}
+@media (pointer:coarse){
+  body.match-active #landscape-button{display:block;position:fixed;z-index:8;right:6px;top:max(40px,calc(env(safe-area-inset-top) + 38px));padding:4px 7px;border:1px solid #54d5ee88;border-radius:7px;background:#0a1933df;color:#bdefff;font-size:11px}
+}
