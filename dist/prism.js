@@ -3,11 +3,13 @@ function drawPrismMirrors(ctx,fighters,tick){
     const pillar=owner.prismPillar;
     if(pillar&&owner.lives>0){
       const charge=Math.max(0,Math.min(1,1-(pillar.eruptAt-tick)/24));
-      ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=.3+charge*.55;
+      ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=.35+charge*.5;
+      ctx.fillStyle='#ff79c52a';ctx.fillRect(pillar.x-38,pillar.y-155,76,310);
       ctx.strokeStyle='#ffb8ed';ctx.shadowColor='#ff80d5';ctx.shadowBlur=14+charge*18;
       ctx.lineWidth=2+charge*3;ctx.setLineDash([9,7]);ctx.beginPath();
-      ctx.moveTo(pillar.x,pillar.y-155);ctx.lineTo(pillar.x,pillar.y+155);ctx.stroke();
-      ctx.setLineDash([]);ctx.beginPath();ctx.arc(pillar.x,pillar.y,16+charge*17,0,Math.PI*2);ctx.stroke();ctx.restore();
+      for(const side of [-1,1]){ctx.moveTo(pillar.x+side*38,pillar.y-155);ctx.lineTo(pillar.x+side*38,pillar.y+155);}
+      ctx.stroke();ctx.setLineDash([]);ctx.beginPath();
+      ctx.arc(pillar.x,pillar.y,14+charge*21,0,Math.PI*2);ctx.stroke();ctx.restore();
     }
     const mirror=owner.prismMirror;
     if(!mirror||mirror.expires<=tick||owner.lives<=0)continue;
