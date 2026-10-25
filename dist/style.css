@@ -185,3 +185,55 @@ main{width:100%;max-width:none;margin:0;padding:14px clamp(10px,1.2vw,28px) 16px
 }
 /* Use the available desktop width; combat values remain pinned at the visible top of the arena. */
 @media (min-width:701px){main{width:100%;max-width:1600px;margin-inline:auto}}
+/* Mobile match UI: keep only the timer, compact fighter HUD, and match controls. */
+@media (pointer:coarse){
+  body:not(.match-active) .touch{display:none}
+  body.match-active main{width:100%;max-width:none;padding:0;min-height:100dvh}
+  body.match-active footer{display:none}
+  body.match-active header{position:absolute;z-index:5;top:max(4px,env(safe-area-inset-top));right:5px;display:block;width:auto;margin:0;padding:0;border:0;background:none;box-shadow:none}
+  body.match-active header .brand,body.match-active header .tools label,body.match-active #sound,body.match-active #open-keybinds{display:none}
+  body.match-active header .tools{gap:4px}
+  body.match-active #pause,body.match-active #exit-match{padding:5px 7px;font-size:11px;border-radius:7px;background:#0a1933df}
+  body.match-active .topline{top:4px;left:35%;right:35%;justify-content:center;z-index:3}
+  body.match-active #stage-label,body.match-active #round-rule,body.match-active #secret-badge,body.match-active #network-status{display:none}
+  body.match-active #timer{font-size:16px}
+  body.match-active .scores{top:30px;bottom:auto;left:2%;right:2%;gap:5px;z-index:3}
+  body.match-active .fighter{width:43%;grid-template-columns:minmax(0,1fr) auto;gap:0 3px;padding:4px 6px;transform:none}
+  body.match-active .fighter>*{transform:none}
+  body.match-active .fighter strong{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  body.match-active .fighter span{font-size:8px}
+  body.match-active .fighter b{font-size:21px}
+  body.match-active .fighter b span{font-size:11px}
+  body.match-active .fighter em{font-size:9px;line-height:1;letter-spacing:2px}
+  body.match-active .vs{font-size:10px}
+  body.match-active #range-hud{top:93px;padding:5px 7px;width:min(230px,60%)}
+  body.match-active #range-hud small{display:none}
+  body.match-active .action-jump{grid-column:1;grid-row:1}
+  body.match-active .action-attack{grid-column:2;grid-row:1}
+  body.match-active .action-heavy{grid-column:3;grid-row:1}
+  body.match-active .action-crouch{grid-column:1;grid-row:2}
+  body.match-active .action-shield{grid-column:2;grid-row:2}
+  body.match-active .action-ultimate{grid-column:3;grid-row:2}
+}
+@media (pointer:coarse) and (max-width:700px){
+  body.match-active .arena{width:100%;border-radius:0}
+  body.match-active .touch{display:flex;position:fixed;z-index:6;left:0;right:0;bottom:max(4px,env(safe-area-inset-bottom));gap:8px;margin:0;padding:0 6px;pointer-events:none}
+  body.match-active .joystick{width:78px;height:78px;pointer-events:auto}
+  body.match-active .touch-actions{flex:0 1 215px;max-width:215px;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,39px);gap:4px;pointer-events:auto}
+  body.match-active .touch-actions button{min-height:0;padding:2px;font-size:10px;border-radius:8px}
+}
+@media (pointer:coarse) and (orientation:landscape) and (max-height:600px){
+  body.match-active{overflow:hidden}
+  body.match-active main{display:flex;align-items:center;justify-content:center;height:100dvh;min-height:0;padding:0}
+  body.match-active .arena{width:min(100vw,calc(176dvh - 10px));max-height:100dvh;flex:none}
+  body.match-active .arena canvas{width:100%;height:auto;aspect-ratio:1200/680}
+  body.match-active .touch{display:flex;position:fixed;z-index:6;left:0;right:0;bottom:max(3px,env(safe-area-inset-bottom));justify-content:space-between;margin:0;padding:0 5px;pointer-events:none}
+  body.match-active .joystick{width:72px;height:72px;pointer-events:auto}
+  body.match-active .touch-actions{flex:0 0 174px;max-width:174px;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,36px);gap:3px;pointer-events:auto}
+  body.match-active .touch-actions button{min-height:0;padding:1px;font-size:9px;border-radius:7px}
+  body.match-active .scores{top:23px;left:5%;right:5%}
+  body.match-active .fighter{width:32%;padding:3px 5px}
+  body.match-active .fighter strong{font-size:11px}
+  body.match-active .fighter b{font-size:18px}
+  body.match-active .fighter em{font-size:8px}
+}
