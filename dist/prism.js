@@ -1,5 +1,14 @@
 function drawPrismMirrors(ctx,fighters,tick){
   for(const owner of fighters){
+    const pillar=owner.prismPillar;
+    if(pillar&&owner.lives>0){
+      const charge=Math.max(0,Math.min(1,1-(pillar.eruptAt-tick)/24));
+      ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=.3+charge*.55;
+      ctx.strokeStyle='#ffb8ed';ctx.shadowColor='#ff80d5';ctx.shadowBlur=14+charge*18;
+      ctx.lineWidth=2+charge*3;ctx.setLineDash([9,7]);ctx.beginPath();
+      ctx.moveTo(pillar.x,pillar.y-155);ctx.lineTo(pillar.x,pillar.y+155);ctx.stroke();
+      ctx.setLineDash([]);ctx.beginPath();ctx.arc(pillar.x,pillar.y,16+charge*17,0,Math.PI*2);ctx.stroke();ctx.restore();
+    }
     const mirror=owner.prismMirror;
     if(!mirror||mirror.expires<=tick||owner.lives<=0)continue;
     const glow=.78+.18*Math.sin(tick*.16),alpha=Math.min(1,(mirror.expires-tick)/25);
@@ -14,10 +23,10 @@ function drawPrismMirrors(ctx,fighters,tick){
 function drawPrismBeam(ctx,beam){
   const a=beam.points[0],b=beam.points[1],alpha=Math.min(1,beam.life/7);
   ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=alpha;
-  ctx.lineCap='round';ctx.shadowColor=beam.prismUltimate?'#fff2b8':beam.prismDeploy?'#ff69c5':'#ef73d0';ctx.shadowBlur=beam.prismDeploy?28:22;
-  ctx.strokeStyle=beam.prismUltimate?'#ffe1f6':beam.prismDeploy?'#ff68c8':beam.prismSplit?'#f6a0e4':'#ed88d6';ctx.lineWidth=beam.prismUltimate?22:beam.prismDeploy?24:beam.prismSplit?15:18;
+  ctx.lineCap='round';ctx.shadowColor=beam.prismUltimate?'#fff2b8':beam.prismPillar?'#ff69c5':'#ef73d0';ctx.shadowBlur=beam.prismPillar?30:22;
+  ctx.strokeStyle=beam.prismUltimate?'#ffe1f6':beam.prismPillar?'#ff68c8':beam.prismSplit?'#f6a0e4':'#ed88d6';ctx.lineWidth=beam.prismUltimate?22:beam.prismPillar?34:beam.prismSplit?15:18;
   ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
-  ctx.shadowBlur=8;ctx.strokeStyle='#fff1fc';ctx.lineWidth=beam.prismDeploy?7:beam.prismSplit?4:5;ctx.stroke();
+  ctx.shadowBlur=8;ctx.strokeStyle='#fff1fc';ctx.lineWidth=beam.prismPillar?8:beam.prismSplit?4:5;ctx.stroke();
   const angle=Math.atan2(b.y-a.y,b.x-a.x);
   for(const point of [a,b]){
     ctx.save();ctx.translate(point.x,point.y);ctx.rotate(angle);
