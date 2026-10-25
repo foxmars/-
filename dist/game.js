@@ -315,9 +315,20 @@ $('#assign-p2-gamepad').onclick=()=>{gamepadClaimPlayer=2;gamepadBindingAction=n
 document.querySelectorAll('[data-team-size]').forEach(button=>{button.onclick=()=>{selectedCpuFormat='teams';selectedTeamSize=Number(button.dataset.teamSize);document.querySelectorAll('[data-team-size]').forEach(item=>{const selected=item===button;item.classList.toggle('selected',selected);item.setAttribute('aria-pressed',String(selected));});document.querySelectorAll('[data-team-format]').forEach(item=>{item.classList.remove('selected');item.setAttribute('aria-pressed','false');});$('#team-size-wrap small').textContent='你控制 1 名斗士，队友和对手由 CPU 操控。';$('#round-rule').textContent=selectedTeamSize+' vs '+selectedTeamSize+' · 3 条命';};});document.querySelectorAll('[data-team-format]').forEach(button=>{button.onclick=()=>{selectedCpuFormat='ffa';document.querySelectorAll('[data-team-size]').forEach(item=>{item.classList.remove('selected');item.setAttribute('aria-pressed','false');});button.classList.add('selected');button.setAttribute('aria-pressed','true');$('#team-size-wrap small').textContent='你单独对抗 3 名 CPU；每名斗士各有 3 条命，最后存活者获胜。';$('#round-rule').textContent='各自为战 · 4 人混战';};});
 // The match overlay is the single source of truth for the compact mobile layout.
 const mobileMatchOverlay=document.querySelector('#overlay');
-function syncMobileMatchLayout(){document.body.classList.toggle('match-active',mobileMatchOverlay.hidden);}
+const matchViewport=document.querySelector('meta[name="viewport"]');
+const menuViewport=matchViewport.content;
+function syncMobileMatchLayout(){
+  const active=mobileMatchOverlay.hidden;
+  document.body.classList.toggle('match-active',active);
+  matchViewport.content=active&&matchMedia('(pointer:coarse)').matches
+    ?'width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover'
+    :menuViewport;
+}
 new MutationObserver(syncMobileMatchLayout).observe(mobileMatchOverlay,{attributes:true,attributeFilter:['hidden']});
 syncMobileMatchLayout();
+for(const eventName of ['gesturestart','gesturechange']){
+  document.addEventListener(eventName,event=>{if(document.body.classList.contains('match-active'))event.preventDefault();},{passive:false});
+}
 
 // Fullscreen and orientation locking require a direct tap in many mobile browsers.
 const landscapeButton=document.createElement('button');
