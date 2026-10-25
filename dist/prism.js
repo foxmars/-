@@ -14,10 +14,10 @@ function drawPrismMirrors(ctx,fighters,tick){
 function drawPrismBeam(ctx,beam){
   const a=beam.points[0],b=beam.points[1],alpha=Math.min(1,beam.life/7);
   ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=alpha;
-  ctx.lineCap='round';ctx.shadowColor=beam.prismUltimate?'#fff2b8':'#ef73d0';ctx.shadowBlur=22;
-  ctx.strokeStyle=beam.prismUltimate?'#ffe1f6':beam.prismSplit?'#f6a0e4':'#ed88d6';ctx.lineWidth=beam.prismUltimate?22:beam.prismSplit?15:18;
+  ctx.lineCap='round';ctx.shadowColor=beam.prismUltimate?'#fff2b8':beam.prismDeploy?'#ff69c5':'#ef73d0';ctx.shadowBlur=beam.prismDeploy?28:22;
+  ctx.strokeStyle=beam.prismUltimate?'#ffe1f6':beam.prismDeploy?'#ff68c8':beam.prismSplit?'#f6a0e4':'#ed88d6';ctx.lineWidth=beam.prismUltimate?22:beam.prismDeploy?24:beam.prismSplit?15:18;
   ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
-  ctx.shadowBlur=8;ctx.strokeStyle='#fff1fc';ctx.lineWidth=beam.prismSplit?4:5;ctx.stroke();
+  ctx.shadowBlur=8;ctx.strokeStyle='#fff1fc';ctx.lineWidth=beam.prismDeploy?7:beam.prismSplit?4:5;ctx.stroke();
   const angle=Math.atan2(b.y-a.y,b.x-a.x);
   for(const point of [a,b]){
     ctx.save();ctx.translate(point.x,point.y);ctx.rotate(angle);
