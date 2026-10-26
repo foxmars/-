@@ -30,7 +30,8 @@ const onlineState = {
   targetInputDelay: INPUT_DELAY,
   lastScheduledFrame: INPUT_DELAY - 1,
   lastDelayAdjust: 0,
-  lastRelayedFrame: -1
+  lastRelayedFrame: -1,
+  queuedButtons: 0
 };
 const onlineEl = selector => document.querySelector(selector);
 const defaultServerAddress = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
@@ -157,6 +158,7 @@ function resetFrameSync() {
   onlineState.latencyMs = null;
   onlineState.lastScheduledFrame = onlineState.inputDelay - 1;
   onlineState.lastRelayedFrame = -1;
+  onlineState.queuedButtons = 0;
   for (let frame = 0; frame < onlineState.inputDelay; frame++) { onlineState.localInputs.set(frame, 0); onlineState.remoteInputs.set(frame, 0); }
 }
 function enterOnlineMode() {
@@ -321,31 +323,45 @@ update = function onlineUpdate() {
     originalUpdate();
     return;
   }
-  const capturedFrame = onlineState.captureFrame++;
-  const frame = capturedFrame + onlineState.inputDelay;
-  const bits = captureInputBits();
-  // If the latency buffer grows during a round, fill the newly opened frame
-  // numbers with held movement/shield state so lockstep never waits on a gap.
-  const heldBits = (onlineState.localInputs.get(onlineState.lastScheduledFrame) || 0) & 99;
-  for (let skipped = onlineState.lastScheduledFrame + 1; skipped < frame; skipped++) {
-    onlineState.localInputs.set(skipped, heldBits);
-    onlineState.inputHistory.push([skipped, heldBits]);
+  // A missing packet must not let captured inputs run ever farther ahead of
+  // simulation. Keep a small queue and retain one-shot buttons while waiting.
+  if (onlineState.captureFrame - onlineState.simFrame < onlineState.inputDelay + 3) {
+    const capturedFrame = onlineState.captureFrame++;
+    const frame = capturedFrame + onlineState.inputDelay;
+    const bits = captureInputBits() | onlineState.queuedButtons;
+    onlineState.queuedButtons = 0;
+    // If the latency buffer grows during a round, fill the newly opened frame
+    // numbers with held movement/shield state so lockstep never waits on a gap.
+    const heldBits = (onlineState.localInputs.get(onlineState.lastScheduledFrame) || 0) & 99;
+    for (let skipped = onlineState.lastScheduledFrame + 1; skipped < frame; skipped++) {
+      onlineState.localInputs.set(skipped, heldBits);
+      onlineState.inputHistory.push([skipped, heldBits]);
+    }
+    onlineState.localInputs.set(frame, bits);
+    onlineState.inputHistory.push([frame, bits]);
+    onlineState.lastScheduledFrame = frame;
+    // Retain every input in the bounded backlog for direct-channel recovery.
+    if (onlineState.inputHistory.length > 24) onlineState.inputHistory.splice(0, onlineState.inputHistory.length - 24);
+  } else {
+    onlineState.queuedButtons |= captureInputBits() & 28;
   }
-  onlineState.localInputs.set(frame, bits);
-  onlineState.inputHistory.push([frame, bits]);
-  onlineState.lastScheduledFrame = frame;
-  if (onlineState.inputHistory.length > 8) onlineState.inputHistory.shift();
   frameInputPacket(onlineState.inputHistory);
   pressed.clear();
-  const simFrame = onlineState.simFrame;
-  if (!onlineState.localInputs.has(simFrame) || !onlineState.remoteInputs.has(simFrame)) return;
-  const local = onlineState.localInputs.get(simFrame), remote = onlineState.remoteInputs.get(simFrame);
-  onlineState.currentInputs = onlineState.role === 'host' ? [local, remote] : [remote, local];
-  const wasInHitstop = hitstop > 0;
-  originalUpdate();
-  // Both peers enter hitstop on the same deterministic hit frame. Keep the
-  // lockstep frame queued until that shared pause ends.
-  if (!wasInHitstop) onlineState.simFrame++;
+  // After a stall, simulate at most three ready frames per display tick to
+  // drain the backlog without making one render frame expensive.
+  for (let step = 0; step < 3; step++) {
+    const simFrame = onlineState.simFrame;
+    if (!onlineState.localInputs.has(simFrame) || !onlineState.remoteInputs.has(simFrame)) break;
+    const local = onlineState.localInputs.get(simFrame), remote = onlineState.remoteInputs.get(simFrame);
+    onlineState.currentInputs = onlineState.role === 'host' ? [local, remote] : [remote, local];
+    const wasInHitstop = hitstop > 0;
+    originalUpdate();
+    // Hitstop lasts real display ticks, not accelerated catch-up steps.
+    if (wasInHitstop) break;
+    onlineState.simFrame++;
+    if (hitstop > 0 || state !== 'playing') break;
+    if (onlineState.captureFrame - onlineState.simFrame <= 1) break;
+  }
   for (const old of onlineState.localInputs.keys()) if (old < onlineState.simFrame - 2) onlineState.localInputs.delete(old);
   for (const old of onlineState.remoteInputs.keys()) if (old < onlineState.simFrame - 2) onlineState.remoteInputs.delete(old);
 };
