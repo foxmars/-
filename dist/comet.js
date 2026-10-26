@@ -122,9 +122,35 @@ function explodeCometOrb(orb){
   }
 }
 
+function hitCometBoomerang(orb,target){
+  if(target.team===orb.owner.team||target.lives<=0||target.inv>0||orb.hits.has(target))return;
+  orb.hits.add(target);
+  if(target.blocking&&target.shield>0){target.shield=Math.max(0,target.shield-(orb.returning?19:13));target.stun=target.shield===0?35:6;}
+  else{
+    const damage=Math.max(1,Math.round((orb.returning?16:12)*(characters[orb.owner.character]?.power||1)*(target.dummy?1:(roleStats[target.character]?.guard||1))));
+    if(isSurvival()){target.hp=Math.max(0,target.hp-damage);target.dmg=target.maxHp-target.hp;}else target.dmg+=damage;
+    target.vx=orb.dir*(orb.returning?-1:1)*Math.min(17,5+target.dmg*.035);
+    target.vy=orb.returning?-7:-3;target.stun=Math.max(target.stun,orb.returning?24:17);target.inv=target.dummy?0:9;
+    if(target.dummy&&$('#mode').value==='range'){rangeStats.lastDamage=damage;rangeStats.totalDamage+=damage;rangeStats.hits++;rangeStats.combo=tick-rangeStats.lastHitTick<=90?rangeStats.combo+1:1;rangeStats.lastHitTick=tick;}
+    if(isSurvival()&&target.hp<=0){target.lives=0;if(!fighters.some(member=>member.team===target.team&&member.lives>0))finish(orb.owner.team);}
+  }
+  target.hitFlash=9;impactBurst(target.x,target.y,orb.returning?'#fff0bd':'#ffc683',orb.dir,true);
+  burst(target.x,target.y,'#ffd995',9);
+}
+
 function updateCometOrbs(){
   cometOrbs=cometOrbs.filter(orb=>{
     if(orb.owner.lives<=0||--orb.life<=0)return false;
+    if(orb.kind==='boomerang'){
+      orb.age++;
+      if(!orb.returning&&(orb.age>=20||orb.x+orb.vx<35||orb.x+orb.vx>1165)){orb.returning=true;orb.hits.clear();burst(orb.x,orb.y,'#ffe4a0',13);}
+      const targetX=orb.owner.x+orb.owner.dir*10,targetY=orb.owner.y-12;
+      if(orb.returning){const dx=targetX-orb.x,dy=targetY-orb.y,length=Math.hypot(dx,dy)||1;orb.vx=dx/length*14;orb.vy=dy/length*14;if(orb.age>25&&length<25)return false;}
+      orb.x+=orb.vx;orb.y+=orb.vy;orb.spin+=.35;
+      for(const target of fighters)if(Math.hypot(target.x-orb.x,target.y-orb.y)<38)hitCometBoomerang(orb,target);
+      if(orb.x<-20||orb.x>1220||orb.y<0||orb.y>680)return false;
+      return true;
+    }
     const previousY=orb.y;
     orb.x+=orb.vx;orb.vy=Math.min(14,orb.vy+.42);orb.y+=orb.vy;orb.spin+=.18*orb.dir;
     for(const target of fighters){
@@ -141,6 +167,11 @@ function updateCometOrbs(){
 
 function drawCometOrbs(){
   for(const orb of cometOrbs){
+    if(orb.kind==='boomerang'){
+      ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=.55;ctx.strokeStyle=orb.returning?'#fff1ba':'#ffac72';ctx.shadowColor='#ffbd74';ctx.shadowBlur=18;ctx.lineWidth=9;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(orb.x-orb.vx*3,orb.y-orb.vy*3);ctx.lineTo(orb.x,orb.y);ctx.stroke();ctx.restore();
+      ctx.save();ctx.translate(orb.x,orb.y);ctx.rotate(orb.spin);ctx.globalCompositeOperation='lighter';ctx.shadowColor='#ffad61';ctx.shadowBlur=22;ctx.fillStyle='#ffbc76';ctx.strokeStyle='#fff2c8';ctx.lineWidth=4;ctx.beginPath();for(let n=0;n<8;n++){const a=n*Math.PI/4,r=n%2?12:27;if(n)ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);else ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r);}ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle='#fff8de';ctx.beginPath();ctx.arc(0,0,7,0,Math.PI*2);ctx.fill();ctx.restore();
+      continue;
+    }
     ctx.save();ctx.translate(orb.x,orb.y);ctx.rotate(orb.spin);ctx.globalCompositeOperation='lighter';
     ctx.shadowColor='#ff9d55';ctx.shadowBlur=20;ctx.fillStyle='#ffb46e';ctx.strokeStyle='#fff0ba';ctx.lineWidth=3;
     ctx.scale(orb.scale||1,orb.scale||1);ctx.beginPath();for(let n=0;n<7;n++){const a=n*Math.PI*2/7,r=n%2?14:20;if(n)ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);else ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r);}ctx.closePath();ctx.fill();ctx.stroke();
