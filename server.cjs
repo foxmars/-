@@ -4,6 +4,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const zlib = require('node:zlib');
 const { EventEmitter } = require('node:events');
 
 const root = path.join(__dirname, 'dist');
@@ -13,6 +14,39 @@ const maxWebSocketPayload = 32_768;
 const rooms = new Map();
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
 const alphabet = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+const staticCache = new Map();
+
+function serveStatic(request, response, file, contents) {
+  let cached = staticCache.get(file);
+  if (!cached) {
+    const compressed = contents.length > 1024 ? zlib.gzipSync(contents, { level: 6 }) : null;
+    cached = {
+      contents,
+      compressed: compressed && compressed.length < contents.length ? compressed : null,
+      etag: '"' + crypto.createHash('sha1').update(contents).digest('hex') + '"'
+    };
+    staticCache.set(file, cached);
+  }
+  const isHtml = path.extname(file) === '.html';
+  const headers = {
+    'Content-Type': mime[path.extname(file)] || 'application/octet-stream',
+    'X-Content-Type-Options': 'nosniff',
+    'Cache-Control': isHtml ? 'no-cache' : 'public, max-age=3600',
+    'ETag': cached.etag,
+    'Vary': 'Accept-Encoding'
+  };
+  if (request.headers['if-none-match'] === cached.etag) {
+    response.writeHead(304, headers);
+    response.end();
+    return;
+  }
+  const useGzip = cached.compressed && /(?:^|,)\s*gzip\s*(?:;|,|$)/i.test(request.headers['accept-encoding'] || '');
+  const body = useGzip ? cached.compressed : cached.contents;
+  if (useGzip) headers['Content-Encoding'] = 'gzip';
+  headers['Content-Length'] = body.length;
+  response.writeHead(200, headers);
+  response.end(request.method === 'HEAD' ? undefined : body);
+}
 
 class WebSocketPeer extends EventEmitter {
   constructor(socket, initialData = Buffer.alloc(0)) {
@@ -255,10 +289,11 @@ const server = http.createServer((request, response) => {
   const requested = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
   const file = path.resolve(root, requested);
   if (!file.startsWith(root + path.sep)) { response.writeHead(403); response.end('Forbidden'); return; }
+  const cached = staticCache.get(file);
+  if (cached) { serveStatic(request, response, file, cached.contents); return; }
   fs.readFile(file, (error, contents) => {
     if (error) { response.writeHead(404); response.end('Not found'); return; }
-    response.writeHead(200, { 'Content-Type': mime[path.extname(file)] || 'application/octet-stream', 'X-Content-Type-Options': 'nosniff' });
-    response.end(contents);
+    serveStatic(request, response, file, contents);
   });
 });
 
