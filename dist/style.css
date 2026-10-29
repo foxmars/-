@@ -256,3 +256,27 @@ main{width:100%;max-width:none;margin:0;padding:14px clamp(10px,1.2vw,28px) 16px
   body.match-active .touch{position:absolute;left:0;right:0;bottom:max(5px,env(safe-area-inset-bottom));width:100%;margin:0;padding:0 max(6px,env(safe-area-inset-left)) 0 max(6px,env(safe-area-inset-right));pointer-events:none}
   body.match-active .joystick,body.match-active .touch-actions{pointer-events:auto}
 }
+
+/* Keep the fixed-size game world undistorted on phones. Reserve the lower edge for touch input. */
+@media (pointer:coarse){
+  body.match-active .arena{background:radial-gradient(ellipse at 50% 48%,#132747 0%,#0a1429 55%,#080d1c 100%)}
+  body.match-active .arena canvas{position:absolute;left:50%;top:50%;width:min(100vw,176.47dvh);height:auto;aspect-ratio:1200/680;transform:translate(-50%,-50%)}
+  body.match-active .touch{position:fixed;z-index:6;display:flex;align-items:end;justify-content:space-between;gap:8px;bottom:max(8px,env(safe-area-inset-bottom));padding-inline:max(10px,env(safe-area-inset-left)) max(10px,env(safe-area-inset-right))}
+  body.match-active .joystick{width:clamp(76px,20vmin,104px);height:clamp(76px,20vmin,104px);flex:none}
+  body.match-active .touch-actions{flex:0 1 clamp(190px,54vw,250px);max-width:250px;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,clamp(38px,9vmin,48px));gap:5px}
+  body.match-active .touch-actions button{min-height:0;padding:2px;border-radius:11px;font-size:clamp(11px,2.8vmin,13px);line-height:1.1}
+}
+@media (pointer:coarse) and (orientation:portrait){
+  body.match-active .arena canvas{top:46%}
+  body.match-active .scores{top:max(34px,env(safe-area-inset-top) + 28px)}
+  body.match-active .touch{bottom:max(12px,env(safe-area-inset-bottom));padding-inline:10px}
+}
+@media (pointer:coarse) and (orientation:landscape){
+  body.match-active .arena canvas{top:50%}
+  body.match-active .scores{top:max(17px,env(safe-area-inset-top) + 8px);left:19%;right:19%}
+  body.match-active .fighter{width:43%}
+  body.match-active .touch{bottom:max(5px,env(safe-area-inset-bottom));padding-inline:max(8px,env(safe-area-inset-left)) max(8px,env(safe-area-inset-right))}
+  body.match-active .joystick{width:clamp(68px,19dvh,94px);height:clamp(68px,19dvh,94px)}
+  body.match-active .touch-actions{flex-basis:clamp(180px,25vw,230px);grid-template-rows:repeat(2,clamp(34px,10dvh,43px));gap:4px}
+  body.match-active .touch-actions button{font-size:clamp(10px,2.7dvh,12px)}
+}
