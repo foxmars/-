@@ -280,3 +280,35 @@ main{width:100%;max-width:none;margin:0;padding:14px clamp(10px,1.2vw,28px) 16px
   body.match-active .touch-actions{flex-basis:clamp(180px,25vw,230px);grid-template-rows:repeat(2,clamp(34px,10dvh,43px));gap:4px}
   body.match-active .touch-actions button{font-size:clamp(10px,2.7dvh,12px)}
 }
+
+/* Mobile combat controls: left movement pad and a right-hand action wheel. */
+@media (pointer:coarse){
+  body.match-active .touch{align-items:flex-end}
+  body.match-active .joystick{width:clamp(80px,22vmin,104px);height:clamp(80px,22vmin,104px)}
+  body.match-active .joystick-ring{border-width:3px;background:radial-gradient(circle,#24547999 0%,#12314eaa 52%,#0c1d34dd 100%)}
+  body.match-active .joystick-knob{width:48%;height:48%;border-width:3px}
+  body.match-active .touch-actions{display:block;position:relative;flex:none;width:clamp(185px,58vw,225px);height:176px;max-width:none}
+  body.match-active .touch-actions button{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;min-height:0;padding:2px;border:2px solid currentColor;border-radius:50%;font-size:11px;line-height:1.1;color:#f5f8ff;text-shadow:0 1px 4px #000a;box-shadow:inset 0 0 15px #ffffff12,0 4px 14px #0009;transition:transform .08s,filter .08s}
+  body.match-active .touch-actions button:active{transform:scale(.91);filter:brightness(1.3)}
+  body.match-active .touch-actions button::before{display:block;font-size:19px;line-height:1}
+  body.match-active .action-attack{right:0;bottom:0;width:74px;height:74px;background:#8a2446;border-color:#ff84a9!important;font-size:13px!important}
+  body.match-active .action-attack::before{content:'✦';font-size:27px!important}
+  body.match-active .action-heavy{right:78px;bottom:56px;width:54px;height:54px;background:#78502a;border-color:#ffc47a!important}
+  body.match-active .action-heavy::before{content:'✹'}
+  body.match-active .action-jump{right:4px;bottom:82px;width:54px;height:54px;background:#185b77;border-color:#69e3ff!important}
+  body.match-active .action-jump::before{content:'↟'}
+  body.match-active .action-ultimate{right:82px;bottom:119px;width:52px;height:52px;background:#75610f;border-color:#ffe66e!important;color:#fff9cb}
+  body.match-active .action-ultimate::before{content:'✧'}
+  body.match-active .action-shield{right:137px;bottom:43px;width:46px;height:46px;background:#4b357a;border-color:#c5a7ff!important}
+  body.match-active .action-shield::before{content:'⬡';font-size:16px}
+  body.match-active .action-crouch{right:145px;bottom:0;width:42px;height:42px;background:#28543d;border-color:#8de0a3!important;font-size:10px}
+  body.match-active .action-crouch::before{content:'↓';font-size:16px}
+}
+@media (pointer:coarse) and (orientation:landscape){
+  body.match-active .joystick{width:clamp(72px,21dvh,92px);height:clamp(72px,21dvh,92px)}
+  body.match-active .touch-actions{transform:scale(.8);transform-origin:right bottom;margin-left:-40px}
+}
+@media (pointer:coarse) and (max-width:350px) and (orientation:portrait){
+  body.match-active .joystick{width:72px;height:72px}
+  body.match-active .touch-actions{transform:scale(.9);transform-origin:right bottom;margin-left:-18px}
+}
