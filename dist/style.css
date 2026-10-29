@@ -312,3 +312,12 @@ main{width:100%;max-width:none;margin:0;padding:14px clamp(10px,1.2vw,28px) 16px
   body.match-active .joystick{width:72px;height:72px}
   body.match-active .touch-actions{transform:scale(.9);transform-origin:right bottom;margin-left:-18px}
 }
+@media (pointer:coarse){
+  body.match-active .joystick{width:clamp(90px,28vw,124px);height:clamp(90px,28vw,124px)}
+}
+@media (pointer:coarse) and (orientation:landscape){
+  body.match-active .joystick{width:clamp(88px,25dvh,112px);height:clamp(88px,25dvh,112px)}
+}
+@media (pointer:coarse) and (max-width:350px) and (orientation:portrait){
+  body.match-active .joystick{width:88px;height:88px}
+}
