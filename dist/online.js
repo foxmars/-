@@ -185,7 +185,7 @@ function showOnlineTab(tab) {
 function renderRooms(rooms) {
   const list = onlineEl('#rooms-list');
   list.replaceChildren();
-  if (!rooms.length) { list.textContent = '暂无公开服务器。创建一个，邀请同学加入吧。'; return; }
+  if (!rooms.length) { list.textContent = '暂无公开服务器。'; return; }
   for (const room of rooms) {
     const button = document.createElement('button');
     button.type = 'button'; button.className = 'room-item';
