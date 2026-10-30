@@ -217,6 +217,8 @@ function renderRoster(message) {
 function enterOnlineMode() {
   if (state === 'playing') return;
   onlineEl('.character-select').hidden = true;
+  onlineEl('.selection-layout').hidden = true;
+  onlineEl('.stats-layout').hidden = true;
   onlineEl('#online-panel').hidden = false;
   onlineEl('#overlay').hidden = false;
   onlineEl('#overlay .eyebrow').textContent = '在线服务器';
@@ -235,6 +237,8 @@ function returnToModeMenu() {
   if (state === 'playing' && $('#mode').value === 'online') return;
   onlineEl('#online-panel').hidden = true;
   onlineEl('.character-select').hidden = false;
+  onlineEl('.selection-layout').hidden = false;
+  onlineEl('.stats-layout').hidden = false;
   onlineEl('#overlay').hidden = false;
   onlineEl('#overlay .eyebrow').textContent = '准备登场 · 选择角色';
   onlineEl('#overlay h1').textContent = '挑选你的斗士';
