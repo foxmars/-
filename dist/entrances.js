@@ -156,7 +156,7 @@ function entranceOffset(fighter, age) {
     case 'prism': return {x, y: -28 * arc, scale: .4 + .6 * ease, rotation: Math.PI * 2 * remaining, stretch: 1};
     case 'comet': return {x, y: -160 * arc - 25 * remaining, scale: .72 + .28 * ease, rotation: -.36 * direction * remaining, stretch: 1 + .16 * arc};
     case 'nova': return {x, y: -120 * arc, scale: .7 + .3 * ease, rotation: -.2 * direction * remaining, stretch: 1 + .08 * arc};
-    case 'drake': return {x, y: -105 * arc + 12 * bob, scale: 1, rotation: -.16 * direction * remaining, stretch: 1 + .12 * arc};
+    case 'drake': return {x, y: -210 * remaining - 72 * arc + 8 * bob, scale: .88 + .12 * ease, rotation: -.22 * direction * remaining, stretch: 1 + .16 * arc};
     case 'gale': return {x, y: -66 * arc + 16 * bob, scale: 1, rotation: .16 * bob, stretch: 1 + .1 * arc};
     case 'volt': return {x, y: -25 * arc, scale: progress < .54 ? .72 : 1, rotation: .08 * bob, stretch: progress < .54 ? 1.25 : 1};
     case 'frost': return {x, y: -18 * arc, scale: .65 + .35 * ease, rotation: 0, stretch: 1};
@@ -167,7 +167,13 @@ function entranceOffset(fighter, age) {
     case 'terra': return {x, y: -70 * arc, scale: 1.1 - .1 * ease, rotation: 0, stretch: 1 - .08 * arc};
     case 'monk': return {x, y: -28 * arc, scale: 1, rotation: .08 * bob, stretch: 1};
     case 'ember': return {x, y: -34 * arc, scale: 1, rotation: .08 * bob, stretch: 1 + .08 * arc};
-    case 'rivet': return {x, y: -15 * arc + 6 * bob + step * 2, scale: 1, rotation: -.04 * direction * remaining, stretch: 1 + .05 * Math.abs(step)};
+    case 'rivet': {
+      // Vanish outside the arena and reappear at the spawn pad; never slide across it.
+      const jump = Math.min(1, Math.max(0, (progress - .34) / .09));
+      const arrival = Math.min(1, Math.max(0, (progress - .43) / .22));
+      const warp = jump * jump * (3 - 2 * jump);
+      return {x: -direction * distance * (1 - warp), y: -22 * Math.sin(arrival * Math.PI), scale: progress < .34 ? 1 : progress < .43 ? Math.max(.03, 1 - jump) : .03 + .97 * arrival, rotation: .08 * Math.sin(age * .6) * (1 - arrival), stretch: progress < .43 ? 1.4 : 1 + .6 * (1 - arrival)};
+    }
     case 'bramble': return {x, y: -23 * arc + step * 2, scale: 1, rotation: .04 * bob, stretch: 1};
     default: return {x, y: -20 * arc, scale: 1, rotation: 0};
   }
@@ -190,6 +196,27 @@ function drawEntranceTravel(ctx, fighter, age, role) {
   ctx.fillStyle = role.light;
   ctx.shadowColor = role.color;
   ctx.shadowBlur = 10;
+  if (fighter.character === 'rivet') {
+    // The arrival gate is fixed at the spawn point while the fighter teleports into it.
+    const gate = Math.min(1, Math.max(0, (p - .31) / .1)) * Math.min(1, Math.max(0, (1 - p) / .2));
+    ctx.globalAlpha = gate * .85;
+    ctx.lineWidth = 4;
+    ctx.beginPath();ctx.ellipse(0, -13, 27 + 5 * Math.sin(age * .35), 49, 0, 0, Math.PI * 2);ctx.stroke();
+    ctx.lineWidth = 2;
+    ctx.beginPath();ctx.ellipse(0, -13, 17, 39, 0, 0, Math.PI * 2);ctx.stroke();
+    for (let n = 0; n < 6; n++) {
+      const a = age * .16 + n * Math.PI / 3;
+      ctx.beginPath();ctx.arc(Math.cos(a) * 35, -13 + Math.sin(a) * 51, 2 + n % 2, 0, Math.PI * 2);ctx.fill();
+    }
+    if (p > .57) {
+      const land = (p - .57) / .43;
+      ctx.globalAlpha = gate * (1 - land);
+      ctx.lineWidth = 5;
+      ctx.beginPath();ctx.ellipse(0, 20, 18 + land * 75, 5 + land * 17, 0, 0, Math.PI * 2);ctx.stroke();
+    }
+    ctx.restore();
+    return;
+  }
   // Several short strokes follow the actual path, including vertical arcs.
   for (let n = 0; n < 3; n++) {
     const trail = entranceOffset(fighter, Math.max(0, age - 7 - n * 7));
@@ -208,9 +235,19 @@ function drawEntranceTravel(ctx, fighter, age, role) {
         ctx.beginPath();ctx.ellipse(x + dx, y + dy + 5, 10 + n * 2, 3, -.15 * dir, 0, Math.PI * 2);ctx.stroke();
       }
       break;
-    case 'comet': case 'nova': case 'drake':
+    case 'comet': case 'nova':
       ctx.lineWidth = 8;ctx.beginPath();ctx.moveTo(x - dir * 86, y - 48);ctx.quadraticCurveTo(x - dir * 42, y - 20, x - dir * 9, y - 5);ctx.stroke();
       for (let n = 0; n < 4; n++) {ctx.beginPath();ctx.arc(x - dir * (24 + n * 22), y - 31 + n * 6, 2 + n % 2, 0, Math.PI * 2);ctx.fill();}
+      break;
+    case 'drake':
+      // Two wingtip flame trails follow the airborne path and flare on landing.
+      for (let wing = -1; wing <= 1; wing += 2) {
+        ctx.globalAlpha = alpha * .72;
+        ctx.lineWidth = 7;
+        ctx.beginPath();ctx.moveTo(x - dir * 93, y - 28 + wing * 25);ctx.quadraticCurveTo(x - dir * 43, y - 15 + wing * 27, x - dir * 8, y - 12 + wing * 17);ctx.stroke();
+        ctx.globalAlpha = alpha * .9;
+        for (let n = 0; n < 4; n++) {ctx.beginPath();ctx.arc(x - dir * (20 + n * 18), y - 17 + wing * 20 + Math.sin(age * .19 + n) * 5, 2 + n % 3, 0, Math.PI * 2);ctx.fill();}
+      }
       break;
     case 'volt':
       for (let n = 0; n < 3; n++) {const tx = x - dir * (20 + n * 22);ctx.lineWidth = 3;ctx.beginPath();ctx.moveTo(tx, y - 36);ctx.lineTo(tx + dir * 9, y - 18);ctx.lineTo(tx - dir * 4, y - 16);ctx.lineTo(tx + dir * 8, y + 3);ctx.stroke();}
