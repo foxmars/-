@@ -157,6 +157,29 @@ function hashRoomPassword(password, salt) {
   return crypto.createHash('sha256').update(salt).update(password, 'utf8').digest();
 }
 
+const formats = { '1v1': [1, 1], '1v2': [1, 2], '2v2': [2, 2], '2v3': [2, 3], '3v3': [3, 3] };
+function roomSummary(room) {
+  return { code: room.code, name: room.name, format: room.format, maxPlayers: room.maxPlayers,
+    players: room.clients.filter(Boolean).length, locked: room.locked, started: room.started };
+}
+function roomRoster(room) {
+  return { type: 'roster', room: roomSummary(room), seats: room.clients.map((client, seat) => client ?
+    { seat, name: room.names[seat], character: room.characters[seat], team: room.teams[seat] } : null) };
+}
+function broadcastRoster(room) { broadcast(room, roomRoster(room)); }
+function broadcastList() {
+  const list = [...rooms.values()].filter(room => !room.locked).map(roomSummary);
+  for (const client of webSockets.clients) if (client.wantsList) send(client, { type: 'rooms', rooms: list });
+}
+function availableSeat(room) {
+  for (const team of [0, 1]) {
+    const wanted = formats[room.format][team];
+    const seats = room.teams.map((value, seat) => value === team && !room.clients[seat] ? seat : -1);
+    if (wanted && seats.some(seat => seat >= 0)) return seats.find(seat => seat >= 0);
+  }
+  return -1;
+}
+
 function leaveRoom(socket) {
   const room = rooms.get(socket.roomCode);
   if (!room) return;
@@ -172,12 +195,12 @@ function leaveRoom(socket) {
     rooms.delete(room.code);
   } else {
     room.started = false;
-    const host = room.clients[0];
-    if (host) send(host, { type: 'playerLeft' });
-    if (!host) rooms.delete(room.code);
+    broadcast(room, { type: 'playerLeft', seat: socket.seat });
+    broadcastRoster(room);
   }
   socket.roomCode = null;
   socket.seat = null;
+  broadcastList();
 }
 
 function handleMessage(socket, data) {
@@ -186,17 +209,30 @@ function handleMessage(socket, data) {
   catch { sendError(socket, '消息格式错误。'); return; }
   if (!message || typeof message.type !== 'string') { sendError(socket, '无效请求。'); return; }
 
+  if (message.type === 'list') {
+    socket.wantsList = true;
+    send(socket, { type: 'rooms', rooms: [...rooms.values()].filter(room => !room.locked).map(roomSummary) });
+    return;
+  }
+
   if (message.type === 'create') {
     const password = message.password === undefined ? '' : message.password;
     if (typeof password !== 'string' || password.length > 64) { sendError(socket, '房间密码最多 64 个字符。'); return; }
     if (socket.roomCode) leaveRoom(socket);
     const code = makeCode();
     const passwordSalt = crypto.randomBytes(16);
-    const room = { code, passwordSalt, passwordHash: hashRoomPassword(password, passwordSalt), clients: [socket, null], names: [cleanName(message.name), ''], characters: [String(message.character || 'pulse').slice(0, 16), 'ember'], started: false, createdAt: Date.now() };
+    const format = formats[message.format] ? message.format : '1v1';
+    const required = formats[format][0] + formats[format][1];
+    const maxPlayers = required;
+    const clients = Array(maxPlayers).fill(null), names = Array(maxPlayers).fill(''), characters = Array(maxPlayers).fill('pulse');
+    const teams = Array.from({ length: maxPlayers }, (_, seat) => seat < formats[format][0] ? 0 : 1);
+    clients[0] = socket; names[0] = cleanName(message.name); characters[0] = String(message.character || 'pulse').slice(0, 16);
+    const room = { code, name: cleanName(message.roomName || `${names[0]}的房间`), format, maxPlayers, locked: Boolean(password), passwordSalt, passwordHash: hashRoomPassword(password, passwordSalt), clients, names, characters, teams, started: false, createdAt: Date.now() };
     rooms.set(code, room);
     socket.roomCode = code;
     socket.seat = 0;
     send(socket, { type: 'created', code, seat: 0 });
+    broadcastRoster(room); broadcastList();
     return;
   }
 
@@ -209,8 +245,8 @@ function handleMessage(socket, data) {
     const passwordHash = hashRoomPassword(password, room.passwordSalt);
     if (!crypto.timingSafeEqual(passwordHash, room.passwordHash)) { sendError(socket, '房间密码错误。'); return; }
     // A player may retry after a delayed acknowledgement; treat joining the same room as success.
-    if (socket.roomCode === code && socket.seat === 1 && room.clients[1] === socket) {
-      send(socket, { type: 'joined', code, seat: 1 });
+    if (socket.roomCode === code && room.clients[socket.seat] === socket) {
+      send(socket, { type: 'joined', code, seat: socket.seat });
       return;
     }
     // Joining the room you host cannot create another player slot on the same connection.
@@ -219,23 +255,31 @@ function handleMessage(socket, data) {
       return;
     }
     if (socket.roomCode) leaveRoom(socket);
-    const guest = room.clients[1];
-    if (guest && guest !== socket && guest.readyState === WebSocket.OPEN) { sendError(socket, '房间已满（已有另一位玩家加入）。'); return; }
-    room.clients[1] = socket;
-    room.names[1] = cleanName(message.name);
-    room.characters[1] = String(message.character || 'ember').slice(0, 16);
+    if (room.started) { sendError(socket, '对战已开始，请等待下一局。'); return; }
+    const seat = availableSeat(room);
+    if (seat < 0) { sendError(socket, '房间已满。'); return; }
+    room.clients[seat] = socket;
+    room.names[seat] = cleanName(message.name);
+    room.characters[seat] = String(message.character || 'ember').slice(0, 16);
     socket.roomCode = code;
-    socket.seat = 1;
-    send(socket, { type: 'joined', code, seat: 1 });
-    send(room.clients[0], { type: 'playerJoined', name: room.names[1], character: room.characters[1] });
+    socket.seat = seat;
+    send(socket, { type: 'joined', code, seat });
+    broadcastRoster(room); broadcastList();
     return;
   }
 
   const room = rooms.get(socket.roomCode);
   if (!room || room.clients[socket.seat] !== socket) { sendError(socket, '请先创建或加入房间。'); return; }
 
+  if (message.type === 'character') {
+    if (room.started) return;
+    room.characters[socket.seat] = String(message.character || 'pulse').slice(0, 16);
+    broadcastRoster(room);
+    return;
+  }
+
   if (message.type === 'pause') {
-    if (room.started && (message.state === 'paused' || message.state === 'playing')) send(room.clients[1 - socket.seat], { type: 'pause', state: message.state });
+    if (room.started && (message.state === 'paused' || message.state === 'playing')) for (const client of room.clients) if (client && client !== socket) send(client, { type: 'pause', state: message.state });
     return;
   }
   if (message.type === 'latencyPing') {
@@ -247,19 +291,21 @@ function handleMessage(socket, data) {
     let signalSize;
     try { signalSize = Buffer.byteLength(JSON.stringify(message.data)); } catch { return; }
     if (signalSize > 8192) return;
-    send(room.clients[1 - socket.seat], { type: 'signal', data: message.data });
+    if (room.maxPlayers === 2) send(room.clients[1 - socket.seat], { type: 'signal', data: message.data });
     return;
   } else if (message.type === 'frameInputs') {
     if (!room.started || !Array.isArray(message.frames) || message.frames.length > 8) return;
-    const frames = message.frames.filter(frame => Array.isArray(frame) && Number.isSafeInteger(frame[0]) && frame[0] >= 0 && Number.isInteger(frame[1]) && frame[1] >= 0 && frame[1] <= 127);
-    if (frames.length) send(room.clients[1 - socket.seat], { type: 'frameInputs', frames });
+    const frames = message.frames.filter(frame => Array.isArray(frame) && Number.isSafeInteger(frame[0]) && frame[0] >= 0 && Number.isInteger(frame[1]) && frame[1] >= 0 && frame[1] <= 255);
+    if (frames.length) for (const client of room.clients) if (client && client !== socket) send(client, { type: 'frameInputs', seat: socket.seat, frames });
     return;
   }
   if (message.type === 'start') {
     if (socket.seat !== 0) { sendError(socket, '只有房主可以开始对战。'); return; }
-    if (!room.clients[1] || room.clients[1].readyState !== WebSocket.OPEN) { sendError(socket, '等待另一位玩家加入后再开始。'); return; }
+    const required = formats[room.format][0] + formats[room.format][1];
+    if (room.clients.slice(0, required).some(client => !client || client.readyState !== WebSocket.OPEN)) { sendError(socket, `需要 ${required} 位玩家全部加入。`); return; }
     room.started = true;
-    broadcast(room, { type: 'started', room: room.code, characters: room.characters, names: room.names });
+    broadcast(room, { type: 'started', room: room.code, characters: room.characters.slice(0, required), names: room.names.slice(0, required), teams: room.teams.slice(0, required), format: room.format });
+    broadcastList();
   } else if (message.type === 'input') {
     if (socket.seat !== 1 || !room.started) return;
     const allowed = new Set(['arrowleft', 'arrowright', 'arrowup', '1', '2', '3']);
@@ -267,13 +313,14 @@ function handleMessage(socket, data) {
     send(room.clients[0], { type: 'input', key: message.key, down: message.down });
   } else if (message.type === 'state') {
     if (socket.seat !== 0 || !room.started || !Array.isArray(message.fighters) || message.fighters.length !== 2) return;
-    send(room.clients[1], { type: 'state', fighters: message.fighters, time: Number(message.time), state: String(message.state) });
+    for (const client of room.clients) if (client && client !== socket) send(client, { type: 'state', fighters: message.fighters, time: Number(message.time), state: String(message.state) });
   } else if (message.type === 'matchover') {
     if (socket.seat !== 0 || !room.started) return;
     room.started = false;
-    send(room.clients[1], { type: 'matchover', winner: Number(message.winner) });
+    for (const client of room.clients) if (client && client !== socket) send(client, { type: 'matchover', winner: Number(message.winner) });
+    broadcastList();
   } else if (message.type === 'rematch') {
-    if (socket.seat === 1) send(room.clients[0], { type: 'rematchRequest' });
+    if (socket.seat !== 0) send(room.clients[0], { type: 'rematchRequest' });
   } else if (message.type === 'leave') leaveRoom(socket);
 }
 
@@ -321,7 +368,7 @@ const heartbeat = setInterval(() => {
     client.ping();
   }
   for (const [code, room] of rooms) {
-    if (!room.clients[0] && !room.clients[1] && Date.now() - room.createdAt > 60_000) rooms.delete(code);
+    if (room.clients.every(client => !client) && Date.now() - room.createdAt > 60_000) rooms.delete(code);
   }
 }, 25_000);
 webSockets.on('connection', client => {

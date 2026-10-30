@@ -13,6 +13,10 @@ const onlineState = {
   socket: null,
   role: null,
   room: '',
+  seat: 0,
+  roster: null,
+  teams: [0, 1],
+  remoteBySeat: [],
   opponentCharacter: 'ember',
   hudAt: 0,
   characters: null,
@@ -59,11 +63,18 @@ function receiveFrameInputs(frames) {
   for (const pair of frames) {
     if (!Array.isArray(pair) || !Number.isSafeInteger(pair[0]) || !Number.isInteger(pair[1])) continue;
     if (pair[0] >= onlineState.simFrame - 2 && pair[0] <= onlineState.captureFrame + 120) {
-      const bits = pair[1] & 127;
+      const bits = pair[1] & 255;
       onlineState.remoteInputs.set(pair[0], bits);
     }
   }
 }
+function receiveSeatInputs(seat, frames) {
+  if (!Number.isInteger(seat) || seat === onlineState.seat || !Array.isArray(frames)) return;
+  const buffer = onlineState.remoteBySeat[seat];
+  if (!buffer) return;
+  for (const [frame, bits] of frames) if (Number.isSafeInteger(frame) && frame >= onlineState.simFrame - 2 && frame <= onlineState.captureFrame + 120 && Number.isInteger(bits)) buffer.set(frame, bits & 255);
+}
+function onlineRoomSize() { return onlineState.characters?.length || 2; }
 function frameInputPacket(frames) {
   const channel = onlineState.dataChannel;
   // Unordered, unreliable datagrams avoid waiting behind stale inputs.
@@ -146,10 +157,11 @@ function captureInputBits() {
     | (pressed.has('mouseattack') || pressed.has(keybinds.attack) ? 8 : 0)
     | (pressed.has('mouseheavy') || pressed.has(keybinds.heavy) ? 16 : 0)
     | (keys.has(keybinds.shield) ? 32 : 0)
-    | (keys.has(keybinds.down) ? 64 : 0);
+    | (keys.has(keybinds.down) ? 64 : 0)
+    | (pressed.has(keybinds.ultimate) ? 128 : 0);
 }
 function decodeInputBits(bits) {
-  return { move: (bits & 3) === 1 ? -1 : (bits & 3) === 2 ? 1 : 0, j: !!(bits & 4), a: !!(bits & 24), h: !!(bits & 16), b: !!(bits & 32), down: !!(bits & 64) };
+  return { move: (bits & 3) === 1 ? -1 : (bits & 3) === 2 ? 1 : 0, j: !!(bits & 4), a: !!(bits & 24), h: !!(bits & 16), b: !!(bits & 32), down: !!(bits & 64), ult: !!(bits & 128) };
 }
 function resetFrameSync() {
   onlineState.inputDelay = onlineState.targetInputDelay;
@@ -160,6 +172,47 @@ function resetFrameSync() {
   onlineState.lastRelayedFrame = -1;
   onlineState.queuedButtons = 0;
   for (let frame = 0; frame < onlineState.inputDelay; frame++) { onlineState.localInputs.set(frame, 0); onlineState.remoteInputs.set(frame, 0); }
+  onlineState.remoteBySeat = Array.from({ length: onlineRoomSize() }, (_, seat) => seat === onlineState.seat ? null : new Map());
+  for (const buffer of onlineState.remoteBySeat) if (buffer) for (let frame = 0; frame < onlineState.inputDelay; frame++) buffer.set(frame, 0);
+}
+function showOnlineTab(tab) {
+  onlineEl('#rooms-view').hidden = tab !== 'rooms';
+  onlineEl('#create-view').hidden = tab !== 'create';
+  onlineEl('#room-lobby').hidden = tab !== 'lobby';
+  onlineEl('#rooms-tab').classList.toggle('selected', tab === 'rooms');
+  onlineEl('#create-tab').classList.toggle('selected', tab === 'create');
+}
+function renderRooms(rooms) {
+  const list = onlineEl('#rooms-list');
+  list.replaceChildren();
+  if (!rooms.length) { list.textContent = '暂无公开服务器。创建一个，邀请同学加入吧。'; return; }
+  for (const room of rooms) {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'room-item';
+    const title = document.createElement('strong'), meta = document.createElement('span');
+    title.textContent = room.name; meta.textContent = `${room.format.replace('v', ' vs ')} · ${room.players}/${room.maxPlayers} 人${room.started ? ' · 对战中' : ''}`;
+    button.append(title, meta); button.disabled = room.started || room.players >= room.maxPlayers;
+    button.onclick = () => { onlineEl('#room-code').value = room.code; onlineEl('#room-password').value = ''; openRoomSocket('join', room.code); };
+    list.append(button);
+  }
+}
+function renderRoster(message) {
+  onlineState.roster = message;
+  const room = message.room, seats = message.seats || [], list = onlineEl('#room-roster');
+  onlineEl('#lobby-title').textContent = `${room.name} · ${room.format.replace('v', ' vs ')}`;
+  onlineEl('#lobby-count').textContent = `${room.players}/${room.maxPlayers} 人 · ${room.code}`;
+  list.replaceChildren();
+  seats.forEach((player, seat) => {
+    const item = document.createElement('div'); item.className = 'room-seat';
+    const team = seat < Number(room.format[0]) ? 1 : 2;
+    item.textContent = `队伍 ${team} · ${player ? `${player.name} / ${characters[player.character]?.name || '斗士'}` : '等待加入…'}`;
+    if (seat === onlineState.seat) item.classList.add('you');
+    list.append(item);
+  });
+  const ready = seats.every(Boolean);
+  onlineEl('#room-start').hidden = onlineState.role !== 'host';
+  onlineEl('#room-start').disabled = !ready;
+  onlineEl('#room-start').textContent = ready ? '开始对战' : `等待玩家 ${room.players}/${room.maxPlayers}`;
 }
 function enterOnlineMode() {
   if (state === 'playing') return;
@@ -167,14 +220,15 @@ function enterOnlineMode() {
   onlineEl('#online-panel').hidden = false;
   onlineEl('#overlay').hidden = false;
   onlineEl('#overlay .eyebrow').textContent = '在线服务器';
-  onlineEl('#overlay h1').textContent = '创建房间或加入对战';
+  onlineEl('#overlay h1').textContent = '服务器列表';
   onlineEl('#overlay p').textContent = '帧同步对战，优先 UDP 直连；网络受限时自动通过服务器转发。';
   onlineEl('#start').hidden = true;
   onlineEl('#localhelp').hidden = true;
   onlineEl('#mode').disabled = false;
   onlineState.role = null;
   onlineState.room = '';
-  if (!onlineState.socket || onlineState.socket.readyState > WebSocket.OPEN) setRoomStatus('填写服务器地址，然后创建或加入房间。');
+  showOnlineTab('rooms');
+  connectRoomSocket();
 }
 
 function returnToModeMenu() {
@@ -194,7 +248,18 @@ function returnToModeMenu() {
 
 function openRoomSocket(action, code = '') {
   if (onlineState.socket && onlineState.socket.readyState === WebSocket.OPEN) {
-    sendRoomMessage({ type: action, code, name: onlineEl('#player-name').value.trim(), character: selectedCharacter, password: onlineEl('#room-password').value });
+    sendRoomMessage(roomRequest(action, code));
+    return;
+  }
+  connectRoomSocket(() => sendRoomMessage(roomRequest(action, code)));
+}
+function roomRequest(action, code) {
+  return { type: action, code, name: onlineEl('#player-name').value.trim(), roomName: onlineEl('#room-name').value.trim(), format: onlineEl('#room-format').value, maxPlayers: Number(onlineEl('#room-capacity').value), character: selectedCharacter, password: onlineEl('#room-password').value };
+}
+function connectRoomSocket(onOpen) {
+  if (onlineState.socket?.readyState === WebSocket.OPEN) { sendRoomMessage({ type: 'list' }); onOpen?.(); return; }
+  if (onlineState.socket?.readyState === WebSocket.CONNECTING) {
+    if (onOpen) onlineState.socket.addEventListener('open', onOpen, { once: true });
     return;
   }
   const address = onlineEl('#server-url').value.trim();
@@ -212,21 +277,26 @@ function openRoomSocket(action, code = '') {
   try { socket = new WebSocket(address); }
   catch { setRoomStatus('服务器地址无效，无法连接。', true); return; }
   onlineState.socket = socket;
-  socket.addEventListener('open', () => sendRoomMessage({ type: action, code, name: onlineEl('#player-name').value.trim(), character: selectedCharacter, password: onlineEl('#room-password').value }));
+  socket.addEventListener('open', () => { sendRoomMessage({ type: 'list' }); onOpen?.(); setRoomStatus('已连接服务器。'); });
   socket.addEventListener('message', event => {
     let message;
     try { message = JSON.parse(event.data); } catch { return; }
-    if (message.type === 'created') {
+    if (message.type === 'rooms') {
+      renderRooms(message.rooms || []);
+    } else if (message.type === 'roster') {
+      renderRoster(message);
+    } else if (message.type === 'created') {
       onlineState.role = 'host';
+      onlineState.seat = 0;
       onlineState.room = message.code;
-      setRoomStatus(`房间 ${message.code} 已创建${onlineEl('#room-password').value ? '（已设置密码）' : ''}。把房间码和密码发给朋友，等待对方加入。`);
+      showOnlineTab('lobby');
+      setRoomStatus(`房间 ${message.code} 已创建，等待玩家加入。`);
       onlineEl('#room-code').value = message.code;
-      onlineEl('#start').hidden = false;
-      onlineEl('#start').textContent = '等待对方加入…';
-      onlineEl('#start').disabled = true;
     } else if (message.type === 'joined') {
       onlineState.role = 'guest';
+      onlineState.seat = message.seat;
       onlineState.room = message.code;
+      showOnlineTab('lobby');
       setRoomStatus(`已加入房间 ${message.code}，等待房主开始。`);
       onlineEl('#start').hidden = true;
     } else if (message.type === 'playerJoined') {
@@ -239,14 +309,11 @@ function openRoomSocket(action, code = '') {
         onlineEl('#start').onclick = () => sendRoomMessage({ type: 'start' });
       }
     } else if (message.type === 'playerLeft') {
-      setRoomStatus('另一位玩家已离开。可以等待新玩家加入。', true);
-      if (onlineState.role === 'host') {
-        state = 'ready';
-        $('#mode').disabled = false;
-        onlineEl('#overlay').hidden = false;
-        onlineEl('#start').textContent = '等待对方加入…';
-        onlineEl('#start').disabled = true;
-      }
+      state = 'ready';
+      $('#mode').disabled = false;
+      onlineEl('#overlay').hidden = false;
+      showOnlineTab('lobby');
+      setRoomStatus('有玩家离开，对战已结束。等待新玩家加入。', true);
     } else if (message.type === 'rematchRequest' && onlineState.role === 'host') {
       setRoomStatus('对手想再来一局。确认后开始新一局。');
       onlineEl('#start').hidden = false;
@@ -257,11 +324,14 @@ function openRoomSocket(action, code = '') {
       state = 'ready';
       onlineEl('#mode').value = 'online';
       onlineState.characters = (message.characters || ['pulse','ember']).map((id, index) => characters[id] ? id : (index ? 'ember' : 'pulse'));
+      onlineState.teams = message.teams || [0, 1];
       start();
-      startPeerConnection().catch(() => setRoomStatus('UDP 直连建立失败，正在通过服务器帧同步。', true));
+      if (onlineRoomSize() === 2) startPeerConnection().catch(() => setRoomStatus('UDP 直连建立失败，正在通过服务器帧同步。', true));
+      else setRoomStatus(`${message.format.replace('v', ' vs ')} 对战开始 · ${onlineRoomSize()} 人`);
 
     } else if (message.type === 'frameInputs' && (onlineState.role === 'host' || onlineState.role === 'guest')) {
-      receiveFrameInputs(message.frames);
+      if (onlineRoomSize() > 2) receiveSeatInputs(message.seat, message.frames);
+      else receiveFrameInputs(message.frames);
     } else if (message.type === 'latencyPong' && Number.isFinite(message.sentAt)) {
       const rtt = Date.now() - message.sentAt;
       if (rtt >= 0 && rtt < 5000 && onlineState.dataChannel?.readyState !== 'open') {
@@ -285,7 +355,11 @@ function openRoomSocket(action, code = '') {
       onlineState.pc?.close(); onlineState.pc = null; onlineState.dataChannel = null;
       onlineState.socket = null;
       onlineState.role = null;
-      if ($('#mode').value === 'online') setRoomStatus('与服务器的连接已断开。', true);
+      if ($('#mode').value === 'online') {
+        if (state === 'playing' || state === 'paused') { state = 'ready'; $('#mode').disabled = false; onlineEl('#overlay').hidden = false; }
+        showOnlineTab('rooms');
+        setRoomStatus('与服务器的连接已断开，请刷新列表重连。', true);
+      }
     }
   });
   socket.addEventListener('error', () => setRoomStatus('连接失败。请检查服务器地址和服务器是否在线。', true));
@@ -308,11 +382,29 @@ start = function onlineStart() {
   if (onlineState.role !== 'host' && onlineState.role !== 'guest') return;
   originalStart();
   const chars = (onlineState.characters || (onlineState.role === 'host' ? [selectedCharacter, onlineState.opponentCharacter] : [onlineState.opponentCharacter, selectedCharacter])).map((id, index) => characters[id] ? id : (index ? 'ember' : 'pulse'));
-  fighters = [fighter(0, chars[0]), fighter(1, chars[1])];
+  const slots = [0, 0];
+  fighters = chars.map((character, seat) => {
+    const team = onlineState.teams[seat] ?? (seat ? 1 : 0);
+    return fighter(seat, character, team, slots[team]++);
+  });
   resetFrameSync();
-  hud();
+  if (onlineRoomSize() > 2) onlineTeamHud(); else hud();
   setRoomStatus('正在建立玩家直连…');
 };
+function onlineTeamHud() {
+  for (const team of [0, 1]) {
+    const members = fighters.filter(p => p.team === team);
+    const alive = members.filter(p => p.lives > 0).length;
+    syncFighterColor(team, members[0]?.character || 'pulse');
+    onlineEl(`#p${team + 1}label`).textContent = `队伍 ${team + 1} · ${alive}/${members.length}`;
+    onlineEl(`#name${team}`).textContent = members.map(p => characters[p.character]?.name || '斗士').join(' · ');
+    onlineEl(`#d${team}`).innerHTML = `${Math.round(members.reduce((sum, p) => sum + p.dmg, 0))}<span>%</span>`;
+    onlineEl(`#s${team}`).textContent = `${members.reduce((sum, p) => sum + Math.max(0, p.lives), 0)} 命`;
+  }
+  onlineEl('#timer').textContent = Math.floor(time / 60).toString().padStart(2, '0') + ':' + Math.ceil(time % 60).toString().padStart(2, '0');
+}
+const originalHud = hud;
+hud = function onlineHud() { if ($('#mode').value === 'online' && onlineRoomSize() > 2 && fighters.length > 2) onlineTeamHud(); else originalHud(); };
 controls = function onlineControls(p) {
   if ($('#mode').value !== 'online' || !onlineState.currentInputs) return originalControls(p);
   return decodeInputBits(onlineState.currentInputs[p.i] || 0);
@@ -343,7 +435,7 @@ update = function onlineUpdate() {
     // Retain every input in the bounded backlog for direct-channel recovery.
     if (onlineState.inputHistory.length > 24) onlineState.inputHistory.splice(0, onlineState.inputHistory.length - 24);
   } else {
-    onlineState.queuedButtons |= captureInputBits() & 28;
+    onlineState.queuedButtons |= captureInputBits() & 156;
   }
   frameInputPacket(onlineState.inputHistory);
   pressed.clear();
@@ -351,9 +443,15 @@ update = function onlineUpdate() {
   // drain the backlog without making one render frame expensive.
   for (let step = 0; step < 3; step++) {
     const simFrame = onlineState.simFrame;
-    if (!onlineState.localInputs.has(simFrame) || !onlineState.remoteInputs.has(simFrame)) break;
-    const local = onlineState.localInputs.get(simFrame), remote = onlineState.remoteInputs.get(simFrame);
-    onlineState.currentInputs = onlineState.role === 'host' ? [local, remote] : [remote, local];
+    if (!onlineState.localInputs.has(simFrame)) break;
+    if (onlineRoomSize() > 2) {
+      if (onlineState.remoteBySeat.some(buffer => buffer && !buffer.has(simFrame))) break;
+      onlineState.currentInputs = onlineState.remoteBySeat.map((buffer, seat) => seat === onlineState.seat ? onlineState.localInputs.get(simFrame) : buffer.get(simFrame));
+    } else {
+      if (!onlineState.remoteInputs.has(simFrame)) break;
+      const local = onlineState.localInputs.get(simFrame), remote = onlineState.remoteInputs.get(simFrame);
+      onlineState.currentInputs = onlineState.role === 'host' ? [local, remote] : [remote, local];
+    }
     const wasInHitstop = hitstop > 0;
     originalUpdate();
     // Hitstop lasts real display ticks, not accelerated catch-up steps.
@@ -364,6 +462,7 @@ update = function onlineUpdate() {
   }
   for (const old of onlineState.localInputs.keys()) if (old < onlineState.simFrame - 2) onlineState.localInputs.delete(old);
   for (const old of onlineState.remoteInputs.keys()) if (old < onlineState.simFrame - 2) onlineState.remoteInputs.delete(old);
+  for (const buffer of onlineState.remoteBySeat) if (buffer) for (const old of buffer.keys()) if (old < onlineState.simFrame - 2) buffer.delete(old);
 };
 finish = function onlineFinish(winner) {
   if (state === 'over') return;
@@ -409,17 +508,37 @@ setInterval(() => {
   }).catch(() => {});
 }, 3000);
 onlineEl('#room-create').addEventListener('click', () => openRoomSocket('create'));
+onlineEl('#rooms-tab').onclick = () => { showOnlineTab('rooms'); sendRoomMessage({ type: 'list' }); };
+onlineEl('#create-tab').onclick = () => showOnlineTab('create');
+onlineEl('#rooms-refresh').onclick = () => { connectRoomSocket(); sendRoomMessage({ type: 'list' }); };
+onlineEl('#room-start').onclick = () => sendRoomMessage({ type: 'start' });
+const capacityFormats = { 2: '1v1', 3: '1v2', 4: '2v2', 5: '2v3', 6: '3v3' };
+onlineEl('#room-capacity').onchange = () => { onlineEl('#room-format').value = capacityFormats[onlineEl('#room-capacity').value]; };
+onlineEl('#room-format').onchange = () => { onlineEl('#room-capacity').value = String(onlineEl('#room-format').value.split('v').reduce((sum, n) => sum + Number(n), 0)); };
+const onlineCharacterList = onlineEl('#online-characters');
+for (const [id, role] of Object.entries(characters)) {
+  const button = document.createElement('button'); button.type = 'button'; button.dataset.character = id;
+  button.textContent = role.name; button.onclick = () => {
+    selectedCharacter = id;
+    for (const choice of onlineCharacterList.children) choice.classList.toggle('selected', choice === button);
+    document.querySelectorAll('.character-select [data-character]').forEach(card => { const chosen = card.dataset.character === id; card.classList.toggle('selected', chosen); card.setAttribute('aria-pressed', String(chosen)); });
+    sendRoomMessage({ type: 'character', character: id });
+  };
+  onlineCharacterList.append(button);
+}
+onlineCharacterList.querySelector('[data-character="pulse"]')?.classList.add('selected');
 onlineEl('#room-join-button').addEventListener('click', () => {
   const code = onlineEl('#room-code').value.trim().toUpperCase();
   if (!code) { setRoomStatus('先输入房间码。', true); return; }
   openRoomSocket('join', code);
 });
 function leaveOnlineRoom() {
-  if (onlineState.socket) onlineState.socket.close();
+  sendRoomMessage({ type: 'leave' });
   onlineState.pc?.close(); onlineState.pc = null; onlineState.dataChannel = null;
-  onlineState.socket = null; onlineState.role = null; onlineState.room = '';
+  onlineState.role = null; onlineState.room = ''; onlineState.roster = null;
   onlineState.localInputs.clear(); onlineState.remoteInputs.clear(); onlineState.inputHistory = [];
   onlineEl('#start').hidden = true; onlineEl('#start').disabled = false;
+  showOnlineTab('rooms'); sendRoomMessage({ type: 'list' });
   setRoomStatus('已退出比赛并离开房间。');
 }
 onlineEl('#room-leave').addEventListener('click', leaveOnlineRoom);
