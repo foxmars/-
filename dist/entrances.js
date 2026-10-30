@@ -138,14 +138,36 @@ function drawEntranceEffect(ctx, fighter, age, role) {
   ctx.restore();
 }
 
-function entranceOffset(character, age, direction) {
-  const progress = Math.min(1, Math.max(0, age / 48));
-  const ease = (1 - progress) ** 3;
-  switch (character) {
-    case 'nova': case 'comet': case 'drake': return {x: -direction * 50 * ease, y: -95 * ease, scale: 1};
-    case 'titan': case 'terra': case 'monk': return {x: 0, y: -65 * ease, scale: 1 + .2 * ease};
-    case 'shade': case 'gale': case 'sand': return {x: -direction * 85 * ease, y: 0, scale: 1};
-    case 'frost': case 'prism': case 'magnet': return {x: 0, y: 0, scale: .3 + .7 * progress};
-    default: return {x: 0, y: -42 * ease, scale: .7 + .3 * progress};
+// Travel from beyond the stage edge to the fighter's actual spawn point.
+function entranceOffset(fighter, age) {
+  const progress = Math.min(1, Math.max(0, age / 90));
+  const ease = 1 - (1 - progress) ** 3;
+  const remaining = 1 - ease;
+  const direction = fighter.dir;
+  const distance = direction > 0 ? fighter.spawnX + 110 : 1310 - fighter.spawnX;
+  const x = -direction * distance * remaining;
+  const arc = Math.sin(progress * Math.PI);
+  const bob = Math.sin(progress * Math.PI * 7) * remaining;
+  switch (fighter.character) {
+    case 'tide': return {x, y: -32 * arc + 8 * bob, scale: 1, rotation: .07 * bob};
+    case 'pulse': return {x, y: -9 * arc, scale: 1, rotation: -.04 * direction * remaining};
+    case 'echo': return {x, y: -36 * Math.abs(Math.sin(progress * Math.PI * 3)) * remaining, scale: 1, rotation: .09 * bob};
+    case 'prism': return {x, y: -28 * arc, scale: .4 + .6 * ease, rotation: Math.PI * 2 * remaining};
+    case 'comet': return {x, y: -160 * arc - 25 * remaining, scale: .72 + .28 * ease, rotation: -.28 * direction * remaining};
+    case 'nova': return {x, y: -120 * arc, scale: .7 + .3 * ease, rotation: -.18 * direction * remaining};
+    case 'drake': return {x, y: -105 * arc + 12 * bob, scale: 1, rotation: -.14 * direction * remaining};
+    case 'gale': return {x, y: -66 * arc + 16 * bob, scale: 1, rotation: .16 * bob};
+    case 'volt': return {x, y: -25 * arc, scale: progress < .54 ? .72 : 1, rotation: .08 * bob};
+    case 'frost': return {x, y: -18 * arc, scale: .65 + .35 * ease, rotation: 0};
+    case 'shade': return {x, y: -12 * arc, scale: .45 + .55 * ease, rotation: 0};
+    case 'sand': return {x, y: 12 * bob, scale: .75 + .25 * ease, rotation: .14 * bob};
+    case 'magnet': return {x, y: -42 * arc, scale: 1, rotation: .1 * bob};
+    case 'titan': return {x, y: -86 * arc, scale: 1.16 - .16 * ease, rotation: 0};
+    case 'terra': return {x, y: -70 * arc, scale: 1.1 - .1 * ease, rotation: 0};
+    case 'monk': return {x, y: -28 * arc, scale: 1, rotation: .08 * bob};
+    case 'ember': return {x, y: -34 * arc, scale: 1, rotation: .08 * bob};
+    case 'rivet': return {x, y: -15 * arc + 6 * bob, scale: 1, rotation: -.04 * direction * remaining};
+    case 'bramble': return {x, y: -23 * arc, scale: 1, rotation: .04 * bob};
+    default: return {x, y: -20 * arc, scale: 1, rotation: 0};
   }
 }
