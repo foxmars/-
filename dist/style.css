@@ -352,3 +352,8 @@ main{width:100%;max-width:none;margin:0;padding:14px clamp(10px,1.2vw,28px) 16px
 body.match-active footer,body.match-active #localhelp{display:none}
 footer{padding:7px 0;font-size:12px}
 footer p{display:none}
+
+/* Landscape full bleed: crop the world uniformly instead of stretching fighters. */
+@media (pointer:coarse) and (orientation:landscape){
+  body.match-active .arena canvas{position:absolute;inset:0;width:100%;height:100%;max-width:none;aspect-ratio:auto;object-fit:cover;object-position:50% 70%;transform:none}
+}
