@@ -152,21 +152,21 @@ function entranceOffset(fighter, age) {
   switch (fighter.character) {
     case 'tide': return {x: x * (1 - .12 * arc), y: 34 * remaining - 47 * arc + 8 * bob, scale: .75 + .25 * ease, rotation: .13 * bob, stretch: 1 + .16 * arc};
     case 'pulse': return {x: -direction * distance * (1 - Math.min(1, progress * 1.48)) ** 2, y: -9 * arc + step * 3, scale: 1, rotation: -.11 * direction * remaining, stretch: 1 + .18 * Math.abs(step)};
-    case 'echo': {const form = Math.min(1, Math.max(0, (progress - .38) / .38)); return {x: progress < .38 ? -direction * distance : 0, y: -18 * Math.sin(form * Math.PI * 4) * (1 - form), scale: progress < .38 ? .01 : .15 + .85 * form, rotation: 0, stretch: 1 + .25 * Math.sin(age * .35) * (1 - form)};}
-    case 'prism': {const form = Math.min(1, Math.max(0, (progress - .42) / .35)); return {x: progress < .42 ? -direction * distance : 0, y: -40 * (1 - form), scale: progress < .42 ? .01 : .2 + .8 * form, rotation: Math.PI * 2 * (1 - form), stretch: 1};}
+    case 'echo': return {x: x * (1 + .08 * Math.sin(progress * Math.PI * 5)), y: -22 * Math.sin(progress * Math.PI * 5) * remaining, scale: .72 + .28 * ease, rotation: .12 * Math.sin(progress * Math.PI * 5) * remaining, stretch: 1 + .22 * Math.abs(Math.sin(age * .29)) * remaining};
+    case 'prism': {const flash = Math.abs(Math.sin(progress * Math.PI * 3)); const hop = Math.min(1, progress * 1.06); return {x: -direction * distance * (1 - hop) ** 1.5, y: -35 * remaining - 56 * flash, scale: .35 + .65 * (1 - flash), rotation: Math.PI * 2 * progress, stretch: 1 + .35 * flash};}
     case 'comet': return {x: -direction * distance * remaining ** 1.6, y: -170 * arc - 35 * remaining, scale: .7 + .3 * ease, rotation: -.42 * direction * remaining, stretch: 1 + .2 * arc};
     case 'nova': return {x: x * (1 - .2 * arc), y: -140 * arc - 28 * remaining, scale: .5 + .5 * ease, rotation: -.28 * direction * remaining, stretch: 1 + .14 * arc};
     case 'drake': return {x, y: -210 * remaining - 72 * arc + 8 * bob, scale: .88 + .12 * ease, rotation: -.22 * direction * remaining, stretch: 1 + .16 * arc};
     case 'gale': return {x: x + direction * 30 * arc, y: -90 * arc + 19 * bob, scale: .85 + .15 * ease, rotation: .23 * bob, stretch: 1 + .15 * arc};
-    case 'volt': {const strike = Math.min(1, Math.max(0, (progress - .48) / .08)); return {x: progress < .48 ? -direction * distance : 0, y: progress < .48 ? -170 : -170 * (1 - strike), scale: progress < .48 ? .01 : .65 + .35 * strike, rotation: 0, stretch: progress < .56 ? 1.35 : 1};}
-    case 'frost': {const form = Math.min(1, Math.max(0, (progress - .34) / .42)); return {x: progress < .34 ? -direction * distance : 0, y: 0, scale: progress < .34 ? .01 : .18 + .82 * form, rotation: 0, stretch: .65 + .35 * form};}
-    case 'shade': {const form = Math.min(1, Math.max(0, (progress - .46) / .32)); return {x: progress < .46 ? -direction * distance : 0, y: 0, scale: progress < .46 ? .01 : .2 + .8 * form, rotation: 0, stretch: .5 + .5 * form};}
-    case 'sand': {const form = Math.min(1, Math.max(0, (progress - .31) / .51)); return {x: progress < .31 ? -direction * distance : 0, y: -18 * (1 - form), scale: progress < .31 ? .01 : .12 + .88 * form, rotation: 1.5 * (1 - form), stretch: 1};}
+    case 'volt': {const strike = Math.min(1, Math.max(0, (progress - .4) / .13)); return {x: progress < .4 ? -direction * distance : 0, y: progress < .4 ? -240 : -240 * (1 - strike), scale: progress < .4 ? .01 : .7 + .3 * strike, rotation: 0, stretch: progress < .53 ? 1.6 : 1};}
+    case 'frost': return {x: x * (1 - .12 * arc), y: -95 * remaining - 38 * arc + 16 * Math.sin(progress * Math.PI * 6) * remaining, scale: .5 + .5 * ease, rotation: Math.PI * 1.5 * remaining, stretch: .8 + .2 * ease};
+    case 'shade': return {x: x * (1 - .08 * arc), y: 30 * remaining - 22 * arc, scale: .48 + .52 * ease, rotation: -.22 * direction * remaining, stretch: .5 + .5 * ease};
+    case 'sand': return {x: x * (1 - .25 * arc), y: -42 * arc + 14 * bob, scale: .35 + .65 * ease, rotation: Math.PI * 3 * remaining, stretch: .75 + .25 * ease};
     case 'magnet': {const pull = Math.min(1, Math.max(0, (progress - .25) / .6)); return {x: -direction * distance * (1 - pull) ** 3, y: -52 * Math.sin(pull * Math.PI), scale: .65 + .35 * pull, rotation: .22 * bob, stretch: 1 + .1 * arc};}
-    case 'titan': {const emerge = Math.min(1, Math.max(0, (progress - .45) / .35)); return {x: progress < .45 ? -direction * distance : 0, y: progress < .45 ? 90 : 90 * (1 - emerge), scale: progress < .45 ? .01 : .65 + .35 * emerge, rotation: 0, stretch: progress < .45 ? 1 : 1.25 - .25 * emerge};}
-    case 'terra': {const rise = Math.min(1, Math.max(0, (progress - .33) / .48)); return {x: progress < .33 ? -direction * distance : 0, y: progress < .33 ? 75 : 75 * (1 - rise), scale: progress < .33 ? .01 : .55 + .45 * rise, rotation: 0, stretch: .8 + .2 * rise};}
-    case 'monk': {const form = Math.min(1, Math.max(0, (progress - .3) / .48)); return {x: progress < .3 ? -direction * distance : 0, y: -20 * (1 - form), scale: progress < .3 ? .01 : .55 + .45 * form, rotation: 0, stretch: 1};}
-    case 'ember': {const burst = Math.min(1, Math.max(0, (progress - .39) / .34)); return {x: progress < .39 ? -direction * distance : 0, y: 43 * (1 - burst), scale: progress < .39 ? .01 : .25 + .75 * burst, rotation: 0, stretch: 1.3 - .3 * burst};}
+    case 'titan': {const tunnel = Math.min(1, progress / .57); const emerge = Math.min(1, Math.max(0, (progress - .57) / .25)); return {x: -direction * distance * (1 - tunnel), y: progress < .57 ? 78 : 78 * (1 - emerge), scale: .7 + .3 * emerge, rotation: 0, stretch: progress < .57 ? .68 : .68 + .32 * emerge};}
+    case 'terra': return {x: x * (1 - .05 * arc), y: -115 * Math.sin(progress * Math.PI) - 26 * remaining, scale: .72 + .28 * ease, rotation: direction * Math.PI * 2 * remaining, stretch: 1};
+    case 'monk': return {x: x * (1 - .18 * arc), y: -140 * Math.sin(progress * Math.PI), scale: .8 + .2 * ease, rotation: direction * Math.PI * 2 * remaining, stretch: 1};
+    case 'ember': return {x: x * (1 - .2 * arc), y: 25 * remaining - 70 * arc, scale: .55 + .45 * ease, rotation: .16 * bob, stretch: 1 + .28 * arc};
     case 'rivet': {
       // Vanish outside the arena and reappear at the spawn pad; never slide across it.
       const jump = Math.min(1, Math.max(0, (progress - .34) / .09));
@@ -174,7 +174,7 @@ function entranceOffset(fighter, age) {
       const warp = jump * jump * (3 - 2 * jump);
       return {x: -direction * distance * (1 - warp), y: -22 * Math.sin(arrival * Math.PI), scale: progress < .34 ? 1 : progress < .43 ? Math.max(.03, 1 - jump) : .03 + .97 * arrival, rotation: .08 * Math.sin(age * .6) * (1 - arrival), stretch: progress < .43 ? 1.4 : 1 + .6 * (1 - arrival)};
     }
-    case 'bramble': {const grow = Math.min(1, Math.max(0, (progress - .27) / .55)); return {x: progress < .27 ? -direction * distance : 0, y: 60 * (1 - grow), scale: progress < .27 ? .01 : .25 + .75 * grow, rotation: .08 * Math.sin(age * .12) * (1 - grow), stretch: .55 + .45 * grow};}
+    case 'bramble': return {x: x * (1 - .14 * arc), y: 40 * remaining - 62 * arc, scale: .55 + .45 * ease, rotation: .2 * Math.sin(progress * Math.PI * 3) * remaining, stretch: .7 + .3 * ease};
     default: return {x, y: -20 * arc, scale: 1, rotation: 0};
   }
 }
@@ -217,21 +217,24 @@ function drawEntranceTravel(ctx, fighter, age, role) {
     ctx.restore();
     return;
   }
-  // These fighters are assembled at their spawn point instead of crossing the arena.
-  if (['echo', 'prism', 'volt', 'frost', 'shade', 'sand', 'titan', 'terra', 'monk', 'ember', 'bramble'].includes(fighter.character)) {
+  // A lightning strike arrives vertically; its effect is anchored at the target.
+  if (fighter.character === 'volt') {
     drawEntranceArrival(ctx, fighter, age, role, alpha);
     ctx.restore();
     return;
   }
-  // Several short strokes follow the actual path, including vertical arcs.
-  for (let n = 0; n < 3; n++) {
-    const trail = entranceOffset(fighter, Math.max(0, age - 7 - n * 7));
-    ctx.globalAlpha = alpha * (.42 - n * .1);
-    ctx.lineWidth = 5 - n;
-    ctx.beginPath();
-    ctx.moveTo(trail.x, trail.y - 11 + n * 12);
-    ctx.quadraticCurveTo(previous.x, previous.y - 15 + n * 12, x - dir * 12, y - 13 + n * 12);
-    ctx.stroke();
+  // Only the aerial entries leave a continuous trail. Other characters carry
+  // their own marks so their movement does not read as the same slide.
+  if (['comet', 'nova', 'drake', 'tide', 'gale'].includes(fighter.character)) {
+    for (let n = 0; n < 3; n++) {
+      const trail = entranceOffset(fighter, Math.max(0, age - 7 - n * 7));
+      ctx.globalAlpha = alpha * (.42 - n * .1);
+      ctx.lineWidth = 5 - n;
+      ctx.beginPath();
+      ctx.moveTo(trail.x, trail.y - 11 + n * 12);
+      ctx.quadraticCurveTo(previous.x, previous.y - 15 + n * 12, x - dir * 12, y - 13 + n * 12);
+      ctx.stroke();
+    }
   }
   ctx.globalAlpha = alpha * .8;
   switch (fighter.character) {
@@ -306,8 +309,8 @@ function drawEntranceTravel(ctx, fighter, age, role) {
     default:
       for (let n = 0; n < 4; n++) {ctx.beginPath();ctx.arc(x - dir * (16 + n * 17), y + 14 - n * 3, 2 + n % 2, 0, Math.PI * 2);ctx.fill();}
   }
-  // The last few frames settle into a crisp ring instead of ending abruptly.
-  if (p > .77) {
+  // A ground shock belongs to physical landings, not every entrance.
+  if (p > .77 && ['pulse', 'comet', 'drake', 'terra', 'monk', 'titan'].includes(fighter.character)) {
     const land = (p - .77) / .23;
     ctx.globalAlpha = alpha * (1 - land) * .8;
     ctx.lineWidth = 4;
