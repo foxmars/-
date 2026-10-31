@@ -163,7 +163,7 @@ function roomSummary(room) {
     players: room.clients.filter(Boolean).length, locked: room.locked, started: room.started };
 }
 function roomRoster(room) {
-  return { type: 'roster', room: roomSummary(room), seats: room.clients.map((client, seat) => client ?
+  return { type: 'roster', room: roomSummary(room), teamNames: room.teamNames, seats: room.clients.map((client, seat) => client ?
     { seat, name: room.names[seat], character: room.characters[seat], team: room.teams[seat] } : null) };
 }
 function broadcastRoster(room) { broadcast(room, roomRoster(room)); }
@@ -239,7 +239,7 @@ function handleMessage(socket, data) {
     const teams = Array.from({ length: maxPlayers }, (_, seat) => seat < formats[format][0] ? 0 : 1);
     clients[0] = socket; names[0] = cleanName(message.name); characters[0] = String(message.character || 'pulse').slice(0, 16);
     const hostToken = crypto.randomBytes(32).toString('hex');
-    const room = { code, name: cleanName(message.roomName || `${names[0]}的房间`), format, maxPlayers, locked: Boolean(password), passwordSalt, passwordHash: hashRoomPassword(password, passwordSalt), hostToken, hostDisconnectedAt: 0, clients, names, characters, teams, started: false, createdAt: Date.now() };
+    const room = { code, name: cleanName(message.roomName || `${names[0]}的房间`), format, maxPlayers, locked: Boolean(password), passwordSalt, passwordHash: hashRoomPassword(password, passwordSalt), hostToken, hostDisconnectedAt: 0, clients, names, characters, teams, teamNames: ['队伍 1', '队伍 2'], started: false, createdAt: Date.now() };
     rooms.set(code, room);
     socket.roomCode = code;
     socket.seat = 0;
@@ -316,6 +316,27 @@ function handleMessage(socket, data) {
     return;
   }
 
+  if (message.type === 'teamName') {
+    if (socket.seat !== 0 || room.started) { sendError(socket, '只有房主能创建或命名队伍。'); return; }
+    const team = Number(message.team);
+    const name = String(message.name || '').trim().slice(0, 16);
+    if (![0, 1].includes(team) || !name) { sendError(socket, '请选择队伍并输入名称。'); return; }
+    room.teamNames[team] = name;
+    broadcastRoster(room);
+    return;
+  }
+  if (message.type === 'team') {
+    if (room.started) { sendError(socket, '对战中不能换队。'); return; }
+    const seat = socket.seat === 0 ? Number(message.seat) : socket.seat;
+    const team = Number(message.team);
+    if (!Number.isInteger(seat) || seat < 0 || seat >= room.maxPlayers || !room.clients[seat] || ![0, 1].includes(team)) { sendError(socket, '无法调整这位玩家的队伍。'); return; }
+    if (room.teams[seat] === team) return;
+    if (room.teams.reduce((count, value, index) => count + (room.clients[index] && value === team ? 1 : 0), 0) >= formats[room.format][team]) { sendError(socket, '目标队伍人数已满。'); return; }
+    room.teams[seat] = team;
+    broadcastRoster(room);
+    return;
+  }
+
   if (message.type === 'pause') {
     if (room.started && (message.state === 'paused' || message.state === 'playing')) for (const client of room.clients) if (client && client !== socket) send(client, { type: 'pause', state: message.state });
     return;
@@ -341,6 +362,7 @@ function handleMessage(socket, data) {
     if (socket.seat !== 0) { sendError(socket, '只有房主可以开始对战。'); return; }
     const required = formats[room.format][0] + formats[room.format][1];
     if (room.clients.slice(0, required).some(client => !client || client.readyState !== WebSocket.OPEN)) { sendError(socket, `需要 ${required} 位玩家全部加入。`); return; }
+    if (room.teams.filter(team => team === 0).length !== formats[room.format][0] || room.teams.filter(team => team === 1).length !== formats[room.format][1]) { sendError(socket, '请先按组队模式分配好双方人数。'); return; }
     room.started = true;
     broadcast(room, { type: 'started', room: room.code, characters: room.characters.slice(0, required), names: room.names.slice(0, required), teams: room.teams.slice(0, required), format: room.format });
     broadcastList();

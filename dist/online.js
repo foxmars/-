@@ -216,23 +216,43 @@ function renderRooms(rooms) {
 function renderRoster(message) {
   onlineState.roster = message;
   const room = message.room, seats = message.seats || [], list = onlineEl('#room-roster');
+  const teamNames = message.teamNames || ['队伍 1', '队伍 2'];
+  const limits = room.format.split('v').map(Number);
   onlineEl('#lobby-title').textContent = `${room.name} · ${room.format.replace('v', ' vs ')}`;
   onlineEl('#lobby-count').textContent = `${room.players}/${room.maxPlayers} 人 · 房间码 ${room.code}`;
   list.replaceChildren();
-  seats.forEach((player, seat) => {
-    const item = document.createElement('div'); item.className = 'room-seat';
-    const team = seat < Number(room.format[0]) ? 1 : 2;
-    item.textContent = `队伍 ${team} · ${player ? `${player.name}${seat === onlineState.seat ? '（你）' : ''} / ${characters[player.character]?.name || '斗士'}` : '等待玩家加入'}`;
-    if (seat === onlineState.seat) item.classList.add('you');
-    list.append(item);
-  });
-  const ready = seats.every(Boolean);
+  for (const team of [0, 1]) {
+    const panel = document.createElement('div'); panel.className = 'room-team';
+    const title = document.createElement('strong');
+    const members = seats.filter(player => player?.team === team);
+    title.textContent = `${teamNames[team]} · ${members.length}/${limits[team]}`;
+    panel.append(title);
+    for (const player of members) {
+      const item = document.createElement('div'); item.className = 'room-seat';
+      item.textContent = `${player.name}${player.seat === onlineState.seat ? '（你）' : ''} / ${characters[player.character]?.name || '斗士'}`;
+      if (player.seat === onlineState.seat) item.classList.add('you');
+      if (onlineState.role === 'host' || player.seat === onlineState.seat) {
+        const move = document.createElement('button'); move.type = 'button'; move.className = 'room-team-move';
+        move.textContent = `加入${teamNames[1 - team]}`;
+        move.disabled = seats.filter(member => member?.team === 1 - team).length >= limits[1 - team];
+        move.onclick = () => sendRoomMessage({ type: 'team', seat: player.seat, team: 1 - team });
+        item.append(move);
+      }
+      panel.append(item);
+    }
+    if (!members.length) { const empty = document.createElement('span'); empty.className = 'room-team-empty'; empty.textContent = '等待玩家选择队伍'; panel.append(empty); }
+    list.append(panel);
+  }
+  const teamSelect = onlineEl('#team-name-target');
+  teamSelect.options[0].textContent = teamNames[0]; teamSelect.options[1].textContent = teamNames[1];
+  onlineEl('#team-create').hidden = onlineState.role !== 'host';
+  const ready = seats.every(Boolean) && [0, 1].every(team => seats.filter(player => player?.team === team).length === limits[team]);
   onlineEl('#room-start').hidden = onlineState.role !== 'host';
   onlineEl('#room-start').disabled = !ready;
-  onlineEl('#room-start').textContent = ready ? '全部到齐，开始对战' : `还差 ${room.maxPlayers - room.players} 人`;
+  onlineEl('#room-start').textContent = ready ? '全部到齐，开始对战' : room.players < room.maxPlayers ? `还差 ${room.maxPlayers - room.players} 人` : '请调整队伍人数';
   onlineEl('#lobby-help').textContent = onlineState.role === 'host'
-    ? ready ? '所有玩家已到齐。选好角色后，点击「开始对战」。' : `把房间码 ${room.code} 发给同学；所有位置坐满后就能开始。`
-    : '选择角色后等待房主开始；你的选择会自动同步。';
+    ? ready ? '队伍人数已匹配。选好角色后，点击「开始对战」。' : `把房间码 ${room.code} 发给同学；选择玩家加入哪支队伍，人数匹配后即可开始。`
+    : '选择角色和队伍后等待房主开始；你的选择会自动同步。';
 }
 function enterOnlineMode() {
   if (state === 'playing') return;
@@ -316,6 +336,7 @@ function connectRoomSocket(onOpen) {
       onlineState.seat = 0;
       onlineState.room = message.code;
       showOnlineTab('lobby');
+      if (onlineState.roster?.room?.code === message.code) renderRoster(onlineState.roster);
       setRoomStatus(`房间 ${message.code} 已创建，等待玩家加入。`);
       onlineEl('#room-code').value = message.code;
       updateRecoverButton();
@@ -324,6 +345,7 @@ function connectRoomSocket(onOpen) {
       onlineState.seat = 0;
       onlineState.room = message.code;
       showOnlineTab('lobby');
+      if (onlineState.roster?.room?.code === message.code) renderRoster(onlineState.roster);
       setRoomStatus(`已返回房间 ${message.code}，可以继续等待或开始对战。`);
       onlineEl('#room-code').value = message.code;
       updateRecoverButton();
@@ -557,6 +579,13 @@ onlineEl('#rooms-tab').onclick = () => { showOnlineTab('rooms'); sendRoomMessage
 onlineEl('#create-tab').onclick = () => showOnlineTab('create');
 onlineEl('#rooms-refresh').onclick = () => { connectRoomSocket(); sendRoomMessage({ type: 'list' }); };
 onlineEl('#room-start').onclick = () => sendRoomMessage({ type: 'start' });
+onlineEl('#team-create').onsubmit = event => {
+  event.preventDefault();
+  const name = onlineEl('#team-name').value.trim();
+  if (!name) return;
+  sendRoomMessage({ type: 'teamName', team: Number(onlineEl('#team-name-target').value), name });
+  onlineEl('#team-name').value = '';
+};
 const capacityFormats = { 2: '1v1', 3: '1v2', 4: '2v2', 5: '2v3', 6: '3v3' };
 onlineEl('#room-capacity').onchange = () => { onlineEl('#room-format').value = capacityFormats[onlineEl('#room-capacity').value]; };
 onlineEl('#room-format').onchange = () => { onlineEl('#room-capacity').value = String(onlineEl('#room-format').value.split('v').reduce((sum, n) => sum + Number(n), 0)); };
