@@ -336,31 +336,36 @@ for(const eventName of ['gesturestart','gesturechange']){
 const landscapeButton=document.createElement('button');
 landscapeButton.id='landscape-button';
 landscapeButton.type='button';
-landscapeButton.textContent='横屏';
-landscapeButton.setAttribute('aria-label','切换到横屏');
+landscapeButton.textContent='全屏横屏';
+landscapeButton.setAttribute('aria-label','进入全屏并切换到横屏');
 document.body.append(landscapeButton);
 let matchFullscreenOwned=false;
 let landscapeHintTimer;
 function showLandscapeHint(message){
   landscapeButton.textContent=message;
   clearTimeout(landscapeHintTimer);
-  landscapeHintTimer=setTimeout(()=>{landscapeButton.textContent='横屏';},4500);
+  landscapeHintTimer=setTimeout(()=>{landscapeButton.textContent='全屏横屏';},4500);
 }
 async function requestMatchLandscape(){
   if(!matchMedia('(pointer:coarse)').matches)return;
+  let fullscreen=Boolean(document.fullscreenElement);
   try{
     if(!document.fullscreenElement&&document.documentElement.requestFullscreen){
       await document.documentElement.requestFullscreen();
       matchFullscreenOwned=true;
+      fullscreen=true;
     }
+  }catch{}
+  if(!fullscreen){showLandscapeHint('请用手机浏览器打开');return;}
+  try{
     if(typeof screen.orientation?.lock!=='function')throw new Error('orientation lock unavailable');
     await screen.orientation.lock('landscape');
-    landscapeButton.textContent='横屏';
-  }catch{
-    showLandscapeHint('请手动旋转手机');
   }
+  catch{showLandscapeHint('已全屏·请旋转手机');return;}
+  landscapeButton.textContent='已全屏';
 }
 $('#start').addEventListener('click',requestMatchLandscape,{capture:true});
+$('#room-start').addEventListener('click',requestMatchLandscape,{capture:true});
 landscapeButton.addEventListener('click',requestMatchLandscape);
 new MutationObserver(()=>{
   if(!mobileMatchOverlay.hidden&&state!=='paused'){
