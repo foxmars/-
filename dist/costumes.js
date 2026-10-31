@@ -71,29 +71,43 @@ function drawCostumePolish(ctx, id, d) {
 // the readable hit-box size while giving each combat style a different outline.
 function drawCharacterBody(ctx, p, traits) {
   const id=p.character, color=traits.color, light=traits.light;
-  const heavy=['titan','terra','rivet','magnet','sand'].includes(id);
-  const agile=['shade','gale','nova','comet','monk'].includes(id);
-  const shoulder=heavy?20:agile?13:17, waist=heavy?17:agile?10:14;
+  const builds={titan:[27,22],terra:[24,19],rivet:[22,16],magnet:[21,15],sand:[20,18],
+    shade:[12,9],gale:[13,9],nova:[14,10],comet:[15,10],monk:[13,11],
+    pulse:[18,12],ember:[18,13],volt:[16,11],frost:[17,12],drake:[19,13],
+    bramble:[19,12],tide:[17,12],echo:[15,11],prism:[16,11]};
+  const [shoulder,waist]=builds[id]||[17,13];
+  const armored=['titan','terra','rivet','magnet','sand'].includes(id);
   ctx.save(); ctx.lineJoin='round'; ctx.lineCap='round';
-  ctx.shadowColor=color; ctx.shadowBlur=11;
+  ctx.shadowColor=color; ctx.shadowBlur=8;
   const armor=ctx.createLinearGradient(-18,-22,19,24);
   armor.addColorStop(0,light); armor.addColorStop(.27,color); armor.addColorStop(1,costumePalette[id]?.[1]||'#17324a');
   ctx.fillStyle=armor; ctx.strokeStyle='#dcefff'; ctx.lineWidth=1.5;
   ctx.beginPath();
-  ctx.moveTo(-shoulder,-10); ctx.lineTo(-waist,-16); ctx.lineTo(waist,-16);
-  ctx.lineTo(shoulder,-10); ctx.lineTo(waist,20); ctx.lineTo(-waist,20);
+  ctx.moveTo(-shoulder,-15); ctx.lineTo(-waist,-20); ctx.lineTo(waist,-20);
+  ctx.lineTo(shoulder,-15); ctx.lineTo(armored?shoulder-3:waist+2,3);
+  ctx.lineTo(waist,20); ctx.lineTo(-waist,20);
+  ctx.lineTo(armored?-shoulder+3:-waist-2,3);
   ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.shadowBlur=0;
-  // One uninterrupted faceplate replaces the old square face and eye blocks.
+  // Head shapes are large enough to remain different when the camera zooms out.
+  const crown=armored?-34:['frost','volt','bramble','nova'].includes(id)?-37:-32;
+  const jaw=armored?12:10;
   ctx.fillStyle='#102238'; ctx.strokeStyle=light; ctx.lineWidth=1.5;
-  ctx.beginPath(); ctx.moveTo(-12,-24);ctx.lineTo(-8,-29);ctx.lineTo(8,-29);ctx.lineTo(12,-24);
-  ctx.lineTo(11,-10);ctx.lineTo(7,-6);ctx.lineTo(-7,-6);ctx.lineTo(-11,-10);ctx.closePath();ctx.fill();ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-jaw,-25);ctx.lineTo(-jaw+4,crown);ctx.lineTo(jaw-4,crown);ctx.lineTo(jaw,-25);
+  ctx.lineTo(jaw-1,-11);ctx.lineTo(6,-6);ctx.lineTo(-6,-6);ctx.lineTo(-jaw+1,-11);
+  ctx.closePath();ctx.fill();ctx.stroke();
   ctx.fillStyle=light; ctx.shadowColor=light; ctx.shadowBlur=5;
   ctx.beginPath();
-  if(id==='shade'||id==='monk'){ctx.moveTo(-7,-17);ctx.lineTo(7,-17);ctx.lineTo(4,-14);ctx.lineTo(-4,-14);}
-  else if(id==='titan'||id==='terra'){ctx.moveTo(-8,-19);ctx.lineTo(8,-19);ctx.lineTo(8,-15);ctx.lineTo(-8,-15);}
-  else {ctx.moveTo(p.dir>0?-7:-6,-19);ctx.lineTo(p.dir>0?8:7,-19);ctx.lineTo(p.dir>0?5:4,-15);ctx.lineTo(p.dir>0?-7:-6,-15);}
+  if(id==='shade'||id==='monk'){ctx.moveTo(-8,-18);ctx.lineTo(8,-18);ctx.lineTo(4,-15);ctx.lineTo(-4,-15);}
+  else if(armored){ctx.moveTo(-9,-20);ctx.lineTo(9,-20);ctx.lineTo(9,-16);ctx.lineTo(-9,-16);}
+  else if(['volt','prism','frost'].includes(id)){ctx.moveTo(-8,-21);ctx.lineTo(0,-16);ctx.lineTo(8,-21);ctx.lineTo(5,-15);ctx.lineTo(-5,-15);}
+  else {ctx.moveTo(p.dir>0?-8:-7,-20);ctx.lineTo(p.dir>0?9:8,-20);ctx.lineTo(p.dir>0?5:4,-15);ctx.lineTo(p.dir>0?-8:-7,-15);}
   ctx.closePath();ctx.fill(); ctx.shadowBlur=0;
+  ctx.strokeStyle=light;ctx.lineWidth=1.7;
+  if(armored){ctx.strokeRect(-waist+3,-12,(waist-3)*2,17);}
+  else if(['shade','gale','monk','tide'].includes(id)){ctx.beginPath();ctx.moveTo(-waist,-5);ctx.quadraticCurveTo(0,7,waist,-5);ctx.stroke();}
+  else {ctx.beginPath();ctx.moveTo(-waist+2,-8);ctx.lineTo(0,2);ctx.lineTo(waist-2,-8);ctx.stroke();}
   ctx.fillStyle='#08142666';
   ctx.beginPath();ctx.moveTo(-waist,20);ctx.lineTo(waist,20);ctx.lineTo(waist-2,24);ctx.lineTo(-waist+2,24);ctx.closePath();ctx.fill();
   ctx.strokeStyle=light;ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(-waist+2,17);ctx.lineTo(waist-2,17);ctx.stroke();
@@ -128,18 +142,21 @@ function drawCharacterCostume(ctx, p, front = false) {
         ctx.fillStyle = '#258eaa'; poly([[-26,-6],[-17,-15],[-15,13],[-27,9]]); poly([[26,-6],[17,-15],[15,13],[27,9]]); break;
       case 'nova':
         ctx.fillStyle = '#253c72'; poly([[-11,-23],[-18,-35],[0,-29],[18,-35],[11,-23]]);
-        ctx.fillStyle = '#94c8ff'; poly([[0,-37],[-7,-27],[0,-19],[7,-27]]); break;
+        ctx.fillStyle = '#94c8ff'; poly([[0,-42],[-7,-27],[0,-19],[7,-27]]);
+        poly([[-17,-10],[-31,-2],[-18,2]]); poly([[17,-10],[31,-2],[18,2]]); break;
       case 'titan':
         ctx.fillStyle = '#423b65'; poly([[-17,-23],[-30,-18],[-35,-4],[-18,1]]); poly([[17,-23],[30,-18],[35,-4],[18,1]]);
         ctx.fillStyle = '#715e91'; poly([[-16,-25],[-12,-35],[12,-35],[16,-25]]); break;
       case 'ember':
-        ctx.fillStyle = '#70323e'; poly([[-14,-22],[-20,-36],[-4,-27]]); poly([[14,-22],[20,-36],[4,-27]]); break;
+        ctx.fillStyle = '#70323e'; poly([[-14,-22],[-20,-39],[-4,-27]]); poly([[14,-22],[20,-39],[4,-27]]);
+        ctx.fillStyle = '#e87644'; poly([[-18,-12],[-28,-4],[-20,13],[-13,4]]);poly([[18,-12],[28,-4],[20,13],[13,4]]);break;
       case 'volt':
         ctx.fillStyle = '#6e6228'; poly([[-15,-22],[-21,-31],[-17,-37],[-4,-28]]); poly([[15,-22],[21,-31],[17,-37],[4,-28]]); break;
       case 'frost':
         ctx.fillStyle = '#45758f'; poly([[-13,-22],[-16,-34],[-5,-28],[0,-38],[5,-28],[16,-34],[13,-22]]); break;
       case 'shade':
-        ctx.fillStyle = '#30213e'; poly([[-17,-20],[-21,-29],[-4,-38],[4,-38],[21,-29],[17,-20]]); break;
+        ctx.fillStyle = '#30213e'; poly([[-17,-20],[-21,-29],[-4,-38],[4,-38],[21,-29],[17,-20]]);
+        poly([[-17,-12],[-27,11],[-13,24],[-5,13]]);poly([[17,-12],[27,11],[13,24],[5,13]]);break;
       case 'terra':
         ctx.fillStyle = '#395644'; poly([[-17,-20],[-29,-27],[-34,-8],[-18,5]]); poly([[17,-20],[29,-27],[34,-8],[18,5]]); break;
       case 'magnet':
@@ -147,7 +164,8 @@ function drawCharacterCostume(ctx, p, front = false) {
       case 'gale':
         ctx.fillStyle = '#456481'; poly([[-13,-22],[-21,-28],[-11,-33],[5,-29],[19,-35],[14,-23]]); break;
       case 'drake':
-        ctx.fillStyle = '#74402f'; poly([[-13,-22],[-19,-37],[-6,-29]]); poly([[13,-22],[19,-37],[6,-29]]); break;
+        ctx.fillStyle = '#74402f'; poly([[-13,-22],[-19,-39],[-6,-29]]); poly([[13,-22],[19,-39],[6,-29]]);
+        ctx.fillStyle='#b75c36';poly([[-15,-10],[-34,-21],[-28,1],[-16,11]]);poly([[15,-10],[34,-21],[28,1],[16,11]]);break;
       case 'monk':
         ctx.fillStyle = '#81634b'; ctx.beginPath(); ctx.arc(0,-31,8,0,Math.PI*2); ctx.fill(); ctx.stroke(); break;
       case 'rivet':
@@ -161,7 +179,8 @@ function drawCharacterCostume(ctx, p, front = false) {
       case 'prism':
         ctx.fillStyle = '#6b456d'; poly([[-13,-22],[-8,-35],[0,-29],[8,-35],[13,-22]]); break;
       case 'comet':
-        ctx.fillStyle = '#80512e'; poly([[-12,-22],[-21,-35],[-1,-29],[16,-39],[13,-22]]); break;
+        ctx.fillStyle = '#80512e'; poly([[-12,-22],[-21,-35],[-1,-29],[16,-39],[13,-22]]);
+        ctx.fillStyle='#e7a356';poly([[-16,5],[-34,17],[-14,15]]);poly([[16,5],[34,17],[14,15]]);break;
       case 'sand':
         ctx.fillStyle = '#705841'; poly([[-17,-23],[-19,-34],[18,-34],[19,-23]]);
         ctx.fillStyle = '#9b7c56'; poly([[-19,10],[-28,17],[-18,28],[-11,15]]); break;
@@ -204,13 +223,13 @@ function drawMirrorIdentifier(ctx, p, roster) {
   ctx.ellipse(0, 29, 25, 6, 0, 0, Math.PI * 2);
   ctx.stroke();
   ctx.beginPath();
-  ctx.roundRect(-15, -23, 30, 18, 4);
+  ctx.roundRect(-15, -57, 30, 18, 4);
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 12px system-ui';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(home ? 'P1' : 'P2', 0, -14);
+  ctx.fillText(home ? 'P1' : 'P2', 0, -48);
   ctx.restore();
 }
