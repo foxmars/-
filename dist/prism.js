@@ -25,8 +25,8 @@ function drawPrismMirrors(ctx,fighters,tick){
 function drawPrismBeam(ctx,beam){
   const a=beam.points[0],b=beam.points[1],alpha=Math.min(1,beam.life/7);
   ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=alpha;
-  ctx.lineCap='round';ctx.shadowColor=beam.prismUltimate?'#fff2b8':beam.prismPillar?'#ff69c5':'#ef73d0';ctx.shadowBlur=beam.prismPillar?30:22;
-  ctx.strokeStyle=beam.prismUltimate?'#ffe1f6':beam.prismPillar?'#ff68c8':beam.prismSplit?'#f6a0e4':'#ed88d6';ctx.lineWidth=beam.prismUltimate?22:beam.prismPillar?34:beam.prismSplit?15:18;
+  ctx.lineCap='round';ctx.shadowColor=beam.prismUltimate?'#ff77dc':beam.prismPillar?'#ff69c5':'#ef73d0';ctx.shadowBlur=beam.prismUltimate?32:beam.prismPillar?30:22;
+  ctx.strokeStyle=beam.prismUltimate&&beam.finisher?'#fff6c7':beam.prismUltimate?'#ffe1f6':beam.prismPillar?'#ff68c8':beam.prismSplit?'#f6a0e4':'#ed88d6';ctx.lineWidth=beam.prismUltimate&&beam.finisher?34:beam.prismUltimate?17:beam.prismPillar?34:beam.prismSplit?15:18;
   ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
   ctx.shadowBlur=8;ctx.strokeStyle='#fff1fc';ctx.lineWidth=beam.prismPillar?8:beam.prismSplit?4:5;ctx.stroke();
   const angle=Math.atan2(b.y-a.y,b.x-a.x);
@@ -41,7 +41,7 @@ function drawPrismKaleidoscope(ctx,p,phase,tick){
   if(!center)return;
   ctx.save();ctx.translate(center.x-p.x,center.y-p.y);ctx.globalCompositeOperation='lighter';
   ctx.shadowColor='#ff9ee5';ctx.shadowBlur=23;ctx.strokeStyle='#ffe3f7';ctx.fillStyle='#fff1fb';
-  ctx.lineWidth=4;const radius=26+Math.min(phase*3,1)*27;
+  ctx.lineWidth=4;const radius=64-Math.min(phase*2,1)*32;
   for(let ring=0;ring<2;ring++){
     ctx.save();ctx.rotate((ring?-.045:.06)*tick);ctx.beginPath();
     for(let n=0;n<6;n++){const angle=n*Math.PI/3,x=Math.cos(angle)*(radius+ring*18),y=Math.sin(angle)*(radius+ring*18);if(n)ctx.lineTo(x,y);else ctx.moveTo(x,y);}
