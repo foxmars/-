@@ -392,3 +392,26 @@ footer p{display:none}
 @media (pointer:coarse) and (orientation:landscape){
   body.match-active .arena canvas{position:absolute;inset:0;width:100%;height:100%;max-width:none;aspect-ratio:auto;object-fit:cover;object-position:50% 70%;transform:none}
 }
+
+/* One mobile choice per screen; list controls use pages instead of drag bars. */
+.mobile-pager{display:none}
+@media (pointer:coarse){
+  #overlay,#online-panel{scrollbar-width:none}
+  #overlay::-webkit-scrollbar,#online-panel::-webkit-scrollbar{display:none}
+  #overlay .selection-layout>.character-select,
+  #overlay .cpu-select-wrap .character-select,
+  #online-characters,#rooms-list{max-height:none;overflow:visible}
+  .mobile-page-hidden{display:none!important}
+  .mobile-pager:not([hidden]){display:flex;align-items:center;justify-content:center;gap:12px;width:100%;margin:8px 0;color:#a9d9e9;font-size:12px}
+  .mobile-pager button{min-height:36px;padding:5px 12px}
+  body[data-mobile-mode="online"][data-mobile-step="2"] #room-lobby{display:none!important}
+  body[data-mobile-mode="online"][data-mobile-step="3"] #online-panel>:not(#room-lobby):not(#room-status),
+  body[data-mobile-mode="online"][data-mobile-step="4"] #online-panel>:not(#room-lobby):not(#room-status){display:none!important}
+  body[data-mobile-mode="online"][data-mobile-step="3"] #room-lobby .room-character,
+  body[data-mobile-mode="online"][data-mobile-step="3"] #room-lobby .room-lobby-actions{display:none!important}
+  body[data-mobile-mode="online"][data-mobile-step="4"] #room-lobby #room-roster,
+  body[data-mobile-mode="online"][data-mobile-step="4"] #room-lobby #team-create,
+  body[data-mobile-mode="online"][data-mobile-step="4"] #room-lobby #lobby-help{display:none!important}
+  body[data-mobile-mode="online"][data-mobile-step="4"] #room-lobby .room-character{margin-top:8px}
+  body[data-mobile-mode="online"] #online-panel{max-height:none;overflow:visible}
+}

@@ -26,7 +26,7 @@
 
   let step = 1;
   let roleTitle = '挑选你的斗士';
-  function finalStep() { return mode.value === 'online' || mode.value === 'classroom' ? 2 : 3; }
+  function finalStep() { return mode.value === 'online' ? 4 : mode.value === 'classroom' ? 2 : 3; }
   function render() {
     const active = mobile.matches && !overlay.hidden;
     document.body.dataset.mobileStep = active ? String(step) : '';
@@ -36,13 +36,15 @@
     setup.querySelector('#mobile-sound').textContent = document.querySelector('#sound').textContent;
     progress.textContent = `${step} / ${finalStep()}`;
     back.hidden = step === 1;
-    next.hidden = step >= finalStep();
-    next.textContent = mode.value === 'online' ? '下一步：选房间' : step === 1 ? '下一步：选角色' : '下一步：开始';
+    next.hidden = step >= finalStep() || (mode.value === 'online' && step === 2);
+    next.textContent = mode.value === 'online' ? step === 1 ? '下一步：选房间' : '下一步：选角色' : step === 1 ? '下一步：选角色' : '下一步：开始';
   }
   function moveTo(value) {
-    if (step === 2 && value === 3) {
+    if (mode.value === 'online') {
+      overlay.querySelector('h1').textContent = value === 4 ? '选择角色并开始' : value === 3 ? '选择队伍' : '服务器列表';
+    } else if (step === 2 && value === 3) {
       roleTitle = overlay.querySelector('h1').textContent;
-      overlay.querySelector('h1').textContent = ({ cpu: '选择对手与规则', local: '选择玩家 2', range: '准备开始训练', survival: '设置擂台赛' })[mode.value] || '准备开始';
+      overlay.querySelector('h1').textContent = ({ cpu: '选择对手与规则', local: '选择玩家 2', range: '准备开始训练', survival: '设置擂台赛', online: '房间准备' })[mode.value] || '准备开始';
     } else if (step === 3 && value === 2) overlay.querySelector('h1').textContent = roleTitle;
     step = Math.max(1, Math.min(finalStep(), value));
     render();
@@ -52,12 +54,52 @@
   mapChoice.onchange = () => { map.value = mapChoice.value; map.dispatchEvent(new Event('change', { bubbles: true })); };
   setup.querySelector('#mobile-sound').onclick = () => { document.querySelector('#sound').click(); render(); };
   setup.querySelector('#mobile-keybinds').onclick = () => document.querySelector('#open-keybinds').click();
-  back.onclick = () => moveTo(step - 1);
+  back.onclick = () => {
+    if (mode.value === 'online' && step === 3) document.querySelector('#room-leave').click();
+    moveTo(step - 1);
+  };
   next.onclick = () => moveTo(step + 1);
   mode.addEventListener('change', () => { step = 1; render(); });
   map.addEventListener('change', render);
   mobile.addEventListener('change', render);
   new MutationObserver(() => { if (!overlay.hidden) step = 1; render(); }).observe(overlay, { attributes: true, attributeFilter: ['hidden'] });
+  const lobby = document.querySelector('#room-lobby');
+  new MutationObserver(() => {
+    if (mode.value !== 'online' || !mobile.matches || overlay.hidden) return;
+    if (!lobby.hidden) moveTo(3);
+    else if (step >= 3) moveTo(2);
+  }).observe(lobby, { attributes: true, attributeFilter: ['hidden'] });
+
+  function paginate(selector, pageSize) {
+    const list = document.querySelector(selector);
+    if (!list) return;
+    const pager = document.createElement('div');
+    pager.className = 'mobile-pager';
+    pager.innerHTML = '<button type="button" aria-label="上一页">上一页</button><span></span><button type="button" aria-label="下一页">下一页</button>';
+    list.after(pager);
+    const [previous, label, following] = pager.children;
+    let page = 0;
+    function update() {
+      const items = [...list.children];
+      const pages = Math.max(1, Math.ceil(items.length / pageSize));
+      page = Math.min(page, pages - 1);
+      items.forEach((item, index) => item.classList.toggle('mobile-page-hidden', mobile.matches && (index < page * pageSize || index >= (page + 1) * pageSize)));
+      pager.hidden = !mobile.matches || pages < 2;
+      previous.disabled = page === 0;
+      following.disabled = page >= pages - 1;
+      label.textContent = `${page + 1} / ${pages}`;
+    }
+    previous.onclick = () => { page--; update(); };
+    following.onclick = () => { page++; update(); };
+    new MutationObserver(() => { page = 0; update(); }).observe(list, { childList: true });
+    mobile.addEventListener('change', update);
+    update();
+  }
+  paginate('.selection-layout > .character-select', 6);
+  paginate('#cpu-character-select', 6);
+  paginate('#p2-character-select', 6);
+  paginate('#rooms-list', 4);
+  paginate('#online-characters', 8);
   window.addEventListener('keydown', event => {
     if (event.key !== 'Enter' || !mobile.matches || overlay.hidden || step >= finalStep() || event.target.matches('input,select,textarea')) return;
     event.preventDefault();
