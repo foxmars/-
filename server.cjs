@@ -174,8 +174,10 @@ function broadcastList() {
 function availableSeat(room) {
   for (const team of [0, 1]) {
     const wanted = formats[room.format][team];
-    const seats = room.teams.map((value, seat) => value === team && !room.clients[seat] ? seat : -1);
-    if (wanted && seats.some(seat => seat >= 0)) return seats.find(seat => seat >= 0);
+    const current = room.clients.reduce((count, client, seat) => count + (client && room.teams[seat] === team ? 1 : 0), 0);
+    if (current >= wanted) continue;
+    const seat = room.clients.findIndex(client => !client);
+    if (seat >= 0) { room.teams[seat] = team; return seat; }
   }
   return -1;
 }
