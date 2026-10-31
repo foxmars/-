@@ -89,14 +89,40 @@ function drawCharacterBody(ctx, p, traits) {
   ctx.lineTo(armored?-shoulder+3:-waist-2,3);
   ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.shadowBlur=0;
-  // Head shapes are large enough to remain different when the camera zooms out.
-  const crown=armored?-34:['frost','volt','bramble','nova'].includes(id)?-37:-32;
-  const jaw=armored?12:10;
+  // The head is a different silhouette for each fighting style.
+  const headShapes={pulse:[12,-34],nova:[9,-40],titan:[16,-35],ember:[11,-32],volt:[9,-38],
+    frost:[11,-39],shade:[12,-35],terra:[15,-32],magnet:[13,-33],gale:[9,-32],
+    drake:[12,-35],monk:[13,-30],rivet:[14,-34],bramble:[10,-36],tide:[11,-33],
+    echo:[11,-32],prism:[10,-37],comet:[9,-34],sand:[15,-31]};
+  const [jaw,crown]=headShapes[id]||[11,-33];
   ctx.fillStyle='#102238'; ctx.strokeStyle=light; ctx.lineWidth=1.5;
   ctx.beginPath();
-  ctx.moveTo(-jaw,-25);ctx.lineTo(-jaw+4,crown);ctx.lineTo(jaw-4,crown);ctx.lineTo(jaw,-25);
+  ctx.moveTo(-jaw,-25);ctx.lineTo(-jaw+(id==='titan'?1:4),crown);
+  ctx.lineTo(jaw-(id==='titan'?1:4),crown);ctx.lineTo(jaw,-25);
   ctx.lineTo(jaw-1,-11);ctx.lineTo(6,-6);ctx.lineTo(-6,-6);ctx.lineTo(-jaw+1,-11);
   ctx.closePath();ctx.fill();ctx.stroke();
+  // Large, readable headgear replaces the tiny shared helmet decorations.
+  ctx.fillStyle=costumePalette[id]?.[1]||color;
+  ctx.strokeStyle=light;ctx.lineWidth=1.7;
+  ctx.beginPath();
+  if(['nova','prism','frost','bramble'].includes(id)){
+    ctx.moveTo(-9,crown+5);ctx.lineTo(0,crown-10);ctx.lineTo(9,crown+5);
+  }else if(['ember','drake','volt'].includes(id)){
+    ctx.moveTo(-jaw,crown+6);ctx.lineTo(-jaw-5,crown-9);ctx.lineTo(-2,crown+1);
+    ctx.lineTo(2,crown+1);ctx.lineTo(jaw+5,crown-9);ctx.lineTo(jaw,crown+6);
+  }else if(['shade','monk','sand'].includes(id)){
+    ctx.moveTo(-jaw-4,crown+6);ctx.quadraticCurveTo(0,crown-11,jaw+4,crown+6);
+    ctx.lineTo(jaw+1,crown+12);ctx.lineTo(-jaw-1,crown+12);
+  }else if(['titan','terra','rivet','magnet'].includes(id)){
+    ctx.moveTo(-jaw-4,crown+2);ctx.lineTo(-jaw-4,crown+11);
+    ctx.lineTo(jaw+4,crown+11);ctx.lineTo(jaw+4,crown+2);
+  }else{
+    ctx.moveTo(-jaw,crown+3);ctx.lineTo(0,crown-5);ctx.lineTo(jaw,crown+3);
+  }
+  ctx.closePath();ctx.fill();ctx.stroke();
+  // A contrasting face window stays visible even when the team marker is above it.
+  ctx.fillStyle='#071321';ctx.strokeStyle=light;ctx.lineWidth=1;
+  ctx.beginPath();ctx.roundRect(-jaw+2,-23,jaw*2-4,11,3);ctx.fill();ctx.stroke();
   ctx.fillStyle=light; ctx.shadowColor=light; ctx.shadowBlur=5;
   ctx.beginPath();
   if(id==='shade'||id==='monk'){ctx.moveTo(-8,-18);ctx.lineTo(8,-18);ctx.lineTo(4,-15);ctx.lineTo(-4,-15);}
@@ -223,13 +249,13 @@ function drawMirrorIdentifier(ctx, p, roster) {
   ctx.ellipse(0, 29, 25, 6, 0, 0, Math.PI * 2);
   ctx.stroke();
   ctx.beginPath();
-  ctx.roundRect(-15, -57, 30, 18, 4);
+  ctx.roundRect(-15, -70, 30, 18, 4);
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 12px system-ui';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(home ? 'P1' : 'P2', 0, -48);
+  ctx.fillText(home ? 'P1' : 'P2', 0, -61);
   ctx.restore();
 }
