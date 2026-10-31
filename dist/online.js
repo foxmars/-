@@ -96,7 +96,11 @@ function frameInputPacket(frames) {
   // packet, the reliable WebSocket copy prevents lockstep from stalling.
   const fresh = frames.filter(([frame]) => frame > onlineState.lastRelayedFrame);
   if (fresh.length && onlineState.socket?.readyState === WebSocket.OPEN) {
-    sendRoomMessage({ type: 'frameInputs', frames: fresh });
+    // The room server accepts at most eight frames per message. Send every
+    // pending frame in bounded packets so a slow link cannot freeze lockstep.
+    for (let i = 0; i < fresh.length; i += 8) {
+      sendRoomMessage({ type: 'frameInputs', frames: fresh.slice(i, i + 8) });
+    }
     onlineState.lastRelayedFrame = fresh[fresh.length - 1][0];
   }
 }
