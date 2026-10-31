@@ -347,3 +347,8 @@ main{width:100%;max-width:none;margin:0;padding:14px clamp(10px,1.2vw,28px) 16px
   body.match-active .arena canvas{position:absolute;left:50%;top:50%;width:min(100vw,176.47dvh);height:auto;max-width:none;aspect-ratio:1200/680;transform:translate(-50%,-50%)}
   body.match-active .touch{padding-inline:max(12px,env(safe-area-inset-left)) max(12px,env(safe-area-inset-right))}
 }
+
+/* The desktop control guide belongs to the menu, not the live match. */
+body.match-active footer,body.match-active #localhelp{display:none}
+footer{padding:7px 0;font-size:12px}
+footer p{display:none}
