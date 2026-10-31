@@ -211,6 +211,30 @@ function drawCharacterCostume(ctx, p, front = false) {
         ctx.fillStyle = '#705841'; poly([[-17,-23],[-19,-34],[18,-34],[19,-23]]);
         ctx.fillStyle = '#9b7c56'; poly([[-19,10],[-28,17],[-18,28],[-11,15]]); break;
     }
+    // Bold equipment shapes carry each identity at the game's normal camera scale.
+    const accent=costumePalette[id]?.[0]||'#ffffff';
+    ctx.strokeStyle=accent;ctx.lineWidth=2.5;ctx.fillStyle=accent+'66';
+    switch(id){
+      case 'pulse': poly([[-31,-17],[-40,-9],[-33,0],[-26,-4]]);poly([[31,-17],[40,-9],[33,0],[26,-4]]);break;
+      case 'nova': poly([[-24,-24],[-39,-17],[-27,-8],[-20,-13]]);poly([[24,-24],[39,-17],[27,-8],[20,-13]]);break;
+      case 'titan': poly([[-27,-7],[-43,-9],[-43,10],[-28,13]]);poly([[27,-7],[43,-9],[43,10],[28,13]]);break;
+      case 'ember': poly([[-26,-20],[-35,-34],[-32,-8],[-24,4]]);poly([[26,-20],[35,-34],[32,-8],[24,4]]);break;
+      case 'volt': poly([[-18,-32],[-30,-40],[-25,-26],[-34,-17]]);poly([[18,-32],[30,-40],[25,-26],[34,-17]]);break;
+      case 'frost': poly([[-24,-20],[-33,-30],[-31,-10],[-25,0]]);poly([[24,-20],[33,-30],[31,-10],[25,0]]);break;
+      case 'shade': poly([[-19,8],[-31,28],[-16,23],[-7,11]]);poly([[19,8],[31,28],[16,23],[7,11]]);break;
+      case 'terra': poly([[-30,-23],[-42,-19],[-40,0],[-31,4]]);poly([[30,-23],[42,-19],[40,0],[31,4]]);break;
+      case 'magnet': ctx.beginPath();ctx.arc(0,-13,39,Math.PI*1.06,Math.PI*1.94);ctx.stroke();break;
+      case 'gale': poly([[-22,-16],[-39,-27],[-32,-10],[-21,4]]);poly([[22,-16],[39,-27],[32,-10],[21,4]]);break;
+      case 'drake': poly([[-26,-19],[-43,-29],[-37,-8],[-25,7]]);poly([[26,-19],[43,-29],[37,-8],[25,7]]);break;
+      case 'monk': ctx.beginPath();ctx.ellipse(0,-15,34,37,0,Math.PI*1.12,Math.PI*1.88);ctx.stroke();break;
+      case 'rivet': poly([[-25,-20],[-40,-27],[-38,-8],[-27,-7]]);poly([[25,-20],[40,-27],[38,-8],[27,-7]]);break;
+      case 'bramble': poly([[-21,-17],[-39,-22],[-30,-7],[-21,0]]);poly([[21,-17],[39,-22],[30,-7],[21,0]]);break;
+      case 'tide': poly([[-23,-11],[-39,-5],[-36,13],[-22,5]]);poly([[23,-11],[39,-5],[36,13],[22,5]]);break;
+      case 'echo': for(const x of [-29,29]){ctx.beginPath();ctx.arc(x,-10,15,0,Math.PI*2);ctx.stroke();}break;
+      case 'prism': poly([[-23,-18],[-39,-9],[-27,3],[-18,-5]]);poly([[23,-18],[39,-9],[27,3],[18,-5]]);break;
+      case 'comet': poly([[-25,2],[-44,13],[-31,14],[-19,7]]);break;
+      case 'sand': poly([[-23,-5],[-41,2],[-30,24],[-19,15]]);break;
+    }
   } else {
     ctx.lineWidth = 2;
     switch (id) {
