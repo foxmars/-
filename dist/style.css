@@ -384,15 +384,29 @@ footer p{display:none}
   #mobile-setup .mobile-step-count{color:#8de8fb;font-size:13px;font-weight:800}
   #mobile-setup label{display:flex;flex-direction:column;gap:6px;color:#bdd9e9;font-size:14px;font-weight:700}
   #mobile-setup select{width:100%;min-height:48px;padding:9px 12px}
+  #mobile-setup label:has(#mobile-mode){display:none}
+  #mobile-mode-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  #mobile-mode-options button{min-height:42px;padding:6px;font-size:13px}
+  #mobile-mode-options button.selected{border-color:#63e2f5;background:#19465c;color:#edfcff}
   #mobile-setup .mobile-setup-options{display:flex;gap:8px}
   #mobile-setup .mobile-setup-options button{flex:1;min-height:44px;padding:7px}
 }
 
 /* Landscape full bleed: crop the world uniformly instead of stretching fighters. */
 @media (pointer:coarse) and (orientation:landscape){
+  body:not(.match-active) header{display:none}
+  #mobile-setup{gap:7px;padding:8px}
+  #mobile-setup h2{font-size:17px}
+  #mobile-setup select{min-height:34px}
+  #mobile-mode-options{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+  #mobile-mode-options button{min-height:30px;padding:3px;font-size:11px}
+  #mobile-setup .mobile-setup-options button{min-height:30px}
   body.match-active .arena canvas{position:absolute;inset:0;width:100%;height:100%;max-width:none;aspect-ratio:auto;object-fit:cover;object-position:50% 70%;transform:none}
 }
 
+/* Page controls replace visible drag bars on every input type. */
+#overlay,#overlay *,#online-panel,#online-panel *{scrollbar-width:none}
+#overlay::-webkit-scrollbar,#overlay *::-webkit-scrollbar,#online-panel::-webkit-scrollbar,#online-panel *::-webkit-scrollbar{display:none}
 /* One mobile choice per screen; list controls use pages instead of drag bars. */
 .mobile-pager{display:none}
 @media (pointer:coarse){
@@ -414,4 +428,11 @@ footer p{display:none}
   body[data-mobile-mode="online"][data-mobile-step="4"] #room-lobby #lobby-help{display:none!important}
   body[data-mobile-mode="online"][data-mobile-step="4"] #room-lobby .room-character{margin-top:8px}
   body[data-mobile-mode="online"] #online-panel{max-height:none;overflow:visible}
+}
+@media (pointer:coarse) and (orientation:landscape){
+  body[data-mobile-step="2"] #overlay .selection-layout>.stat-panel,
+  body[data-mobile-step="2"] #overlay>.stats-layout{display:none!important}
+  body[data-mobile-step] #overlay h1{font-size:18px;margin:2px 0}
+  body[data-mobile-step] #overlay .selection-layout{margin:2px 0}
+  body[data-mobile-step] #mobile-wizard-nav{padding:4px;margin-top:auto}
 }
