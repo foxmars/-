@@ -180,11 +180,22 @@ function availableSeat(room) {
   return -1;
 }
 
-function leaveRoom(socket) {
+function leaveRoom(socket, disconnected = false) {
   const room = rooms.get(socket.roomCode);
   if (!room) return;
+  if (room.clients[socket.seat] !== socket) return;
   room.clients[socket.seat] = null;
   if (socket.seat === 0) {
+    if (disconnected) {
+      room.started = false;
+      room.hostDisconnectedAt = Date.now();
+      broadcast(room, { type: 'playerLeft', message: '房主暂时离线，等待房主返回。' });
+      broadcastRoster(room);
+      socket.roomCode = null;
+      socket.seat = null;
+      broadcastList();
+      return;
+    }
     for (const client of room.clients) {
       if (client) {
         client.roomCode = null;
@@ -227,11 +238,38 @@ function handleMessage(socket, data) {
     const clients = Array(maxPlayers).fill(null), names = Array(maxPlayers).fill(''), characters = Array(maxPlayers).fill('pulse');
     const teams = Array.from({ length: maxPlayers }, (_, seat) => seat < formats[format][0] ? 0 : 1);
     clients[0] = socket; names[0] = cleanName(message.name); characters[0] = String(message.character || 'pulse').slice(0, 16);
-    const room = { code, name: cleanName(message.roomName || `${names[0]}的房间`), format, maxPlayers, locked: Boolean(password), passwordSalt, passwordHash: hashRoomPassword(password, passwordSalt), clients, names, characters, teams, started: false, createdAt: Date.now() };
+    const hostToken = crypto.randomBytes(32).toString('hex');
+    const room = { code, name: cleanName(message.roomName || `${names[0]}的房间`), format, maxPlayers, locked: Boolean(password), passwordSalt, passwordHash: hashRoomPassword(password, passwordSalt), hostToken, hostDisconnectedAt: 0, clients, names, characters, teams, started: false, createdAt: Date.now() };
     rooms.set(code, room);
     socket.roomCode = code;
     socket.seat = 0;
-    send(socket, { type: 'created', code, seat: 0 });
+    send(socket, { type: 'created', code, seat: 0, hostToken });
+    broadcastRoster(room); broadcastList();
+    return;
+  }
+
+  if (message.type === 'recover') {
+    const code = String(message.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    const room = rooms.get(code);
+    const token = String(message.hostToken || '');
+    if (!room || !/^[a-f0-9]{64}$/.test(token) || !crypto.timingSafeEqual(Buffer.from(token, 'hex'), Buffer.from(room.hostToken, 'hex'))) {
+      sendError(socket, '无法找回房间，可能已关闭或恢复凭证无效。'); return;
+    }
+    if (socket.roomCode && room.clients[socket.seat] === socket && socket.seat !== 0) leaveRoom(socket);
+    else if (socket.roomCode && socket.roomCode !== code) leaveRoom(socket);
+    const oldHost = room.clients[0];
+    if (oldHost && oldHost !== socket) {
+      oldHost.roomCode = null;
+      oldHost.seat = null;
+      send(oldHost, { type: 'playerLeft', message: '房主已在另一个页面返回。' });
+    }
+    room.clients[0] = socket;
+    room.hostDisconnectedAt = 0;
+    room.started = false;
+    room.names[0] = cleanName(message.name || room.names[0]);
+    socket.roomCode = code;
+    socket.seat = 0;
+    send(socket, { type: 'recovered', code, seat: 0, hostToken: room.hostToken });
     broadcastRoster(room); broadcastList();
     return;
   }
@@ -357,8 +395,8 @@ webSockets.on('connection', client => {
   client.roomCode = null;
   client.seat = null;
   client.on('message', data => handleMessage(client, data));
-  client.on('close', () => leaveRoom(client));
-  client.on('error', () => leaveRoom(client));
+  client.on('close', () => leaveRoom(client, true));
+  client.on('error', () => leaveRoom(client, true));
 });
 
 const heartbeat = setInterval(() => {
@@ -368,8 +406,12 @@ const heartbeat = setInterval(() => {
     client.ping();
   }
   for (const [code, room] of rooms) {
-    if (room.clients.every(client => !client) && Date.now() - room.createdAt > 60_000) rooms.delete(code);
+    if (room.hostDisconnectedAt && Date.now() - room.hostDisconnectedAt > 5 * 60_000) {
+      for (const client of room.clients) if (client) { client.roomCode = null; client.seat = null; send(client, { type: 'playerLeft', message: '房主未返回，房间已关闭。' }); }
+      rooms.delete(code);
+    } else if (room.clients.every(client => !client) && Date.now() - room.createdAt > 60_000 && !room.hostDisconnectedAt) rooms.delete(code);
   }
+  broadcastList();
 }, 25_000);
 webSockets.on('connection', client => {
   client.isAlive = true;

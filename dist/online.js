@@ -41,6 +41,19 @@ const onlineEl = selector => document.querySelector(selector);
 const defaultServerAddress = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
 const savedServer = localStorage.getItem('neon-brawl-server');
 onlineEl('#server-url').value = savedServer || defaultServerAddress;
+const hostRoomStorageKey = 'neon-brawl-host-room';
+function savedHostRoom() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(hostRoomStorageKey) || 'null');
+    return saved?.code && /^[a-f0-9]{64}$/.test(saved.hostToken) ? saved : null;
+  } catch { return null; }
+}
+function updateRecoverButton() {
+  const saved = savedHostRoom();
+  const button = onlineEl('#room-recover');
+  button.hidden = !saved || onlineState.role === 'host';
+  if (saved) button.textContent = `返回我的服务器 · ${saved.code}`;
+}
 
 function setRoomStatus(message, error = false) {
   const status = onlineEl('#room-status');
@@ -230,6 +243,7 @@ function enterOnlineMode() {
   onlineState.role = null;
   onlineState.room = '';
   showOnlineTab('rooms');
+  updateRecoverButton();
   connectRoomSocket();
 }
 
@@ -258,7 +272,7 @@ function openRoomSocket(action, code = '') {
   connectRoomSocket(() => sendRoomMessage(roomRequest(action, code)));
 }
 function roomRequest(action, code) {
-  return { type: action, code, name: onlineEl('#player-name').value.trim(), roomName: onlineEl('#room-name').value.trim(), format: onlineEl('#room-format').value, maxPlayers: Number(onlineEl('#room-capacity').value), character: selectedCharacter, password: onlineEl('#room-password').value };
+  return { type: action, code, hostToken: action === 'recover' ? savedHostRoom()?.hostToken : undefined, name: onlineEl('#player-name').value.trim(), roomName: onlineEl('#room-name').value.trim(), format: onlineEl('#room-format').value, maxPlayers: Number(onlineEl('#room-capacity').value), character: selectedCharacter, password: onlineEl('#room-password').value };
 }
 function connectRoomSocket(onOpen) {
   if (onlineState.socket?.readyState === WebSocket.OPEN) { sendRoomMessage({ type: 'list' }); onOpen?.(); return; }
@@ -290,12 +304,22 @@ function connectRoomSocket(onOpen) {
     } else if (message.type === 'roster') {
       renderRoster(message);
     } else if (message.type === 'created') {
+      localStorage.setItem(hostRoomStorageKey, JSON.stringify({ code: message.code, hostToken: message.hostToken, server: onlineEl('#server-url').value.trim() }));
       onlineState.role = 'host';
       onlineState.seat = 0;
       onlineState.room = message.code;
       showOnlineTab('lobby');
       setRoomStatus(`房间 ${message.code} 已创建，等待玩家加入。`);
       onlineEl('#room-code').value = message.code;
+      updateRecoverButton();
+    } else if (message.type === 'recovered') {
+      onlineState.role = 'host';
+      onlineState.seat = 0;
+      onlineState.room = message.code;
+      showOnlineTab('lobby');
+      setRoomStatus(`已返回房间 ${message.code}，可以继续等待或开始对战。`);
+      onlineEl('#room-code').value = message.code;
+      updateRecoverButton();
     } else if (message.type === 'joined') {
       onlineState.role = 'guest';
       onlineState.seat = message.seat;
@@ -317,7 +341,7 @@ function connectRoomSocket(onOpen) {
       $('#mode').disabled = false;
       onlineEl('#overlay').hidden = false;
       showOnlineTab('lobby');
-      setRoomStatus('有玩家离开，对战已结束。等待新玩家加入。', true);
+      setRoomStatus(message.message || '有玩家离开，对战已结束。等待新玩家加入。', true);
     } else if (message.type === 'rematchRequest' && onlineState.role === 'host') {
       setRoomStatus('对手想再来一局。确认后开始新一局。');
       onlineEl('#start').hidden = false;
@@ -352,13 +376,17 @@ function connectRoomSocket(onOpen) {
       if (state !== 'over') finish(message.winner);
       onlineEl('#start').hidden = false;
       onlineEl('#start').onclick = () => start();
-    } else if (message.type === 'error') setRoomStatus(message.message, true);
+    } else if (message.type === 'error') {
+      if (message.message?.startsWith('无法找回房间')) { localStorage.removeItem(hostRoomStorageKey); updateRecoverButton(); }
+      setRoomStatus(message.message, true);
+    }
   });
   socket.addEventListener('close', () => {
     if (onlineState.socket === socket) {
       onlineState.pc?.close(); onlineState.pc = null; onlineState.dataChannel = null;
       onlineState.socket = null;
       onlineState.role = null;
+      updateRecoverButton();
       if ($('#mode').value === 'online') {
         if (state === 'playing' || state === 'paused') { state = 'ready'; $('#mode').disabled = false; onlineEl('#overlay').hidden = false; }
         showOnlineTab('rooms');
@@ -512,6 +540,12 @@ setInterval(() => {
   }).catch(() => {});
 }, 3000);
 onlineEl('#room-create').addEventListener('click', () => openRoomSocket('create'));
+onlineEl('#room-recover').addEventListener('click', () => {
+  const saved = savedHostRoom();
+  if (!saved) { updateRecoverButton(); return; }
+  onlineEl('#server-url').value = saved.server || defaultServerAddress;
+  openRoomSocket('recover', saved.code);
+});
 onlineEl('#rooms-tab').onclick = () => { showOnlineTab('rooms'); sendRoomMessage({ type: 'list' }); };
 onlineEl('#create-tab').onclick = () => showOnlineTab('create');
 onlineEl('#rooms-refresh').onclick = () => { connectRoomSocket(); sendRoomMessage({ type: 'list' }); };
@@ -538,11 +572,13 @@ onlineEl('#room-join-button').addEventListener('click', () => {
 });
 function leaveOnlineRoom() {
   sendRoomMessage({ type: 'leave' });
+  if (onlineState.role === 'host') localStorage.removeItem(hostRoomStorageKey);
   onlineState.pc?.close(); onlineState.pc = null; onlineState.dataChannel = null;
   onlineState.role = null; onlineState.room = ''; onlineState.roster = null;
   onlineState.localInputs.clear(); onlineState.remoteInputs.clear(); onlineState.inputHistory = [];
   onlineEl('#start').hidden = true; onlineEl('#start').disabled = false;
   showOnlineTab('rooms'); sendRoomMessage({ type: 'list' });
+  updateRecoverButton();
   setRoomStatus('已退出比赛并离开房间。');
 }
 onlineEl('#room-leave').addEventListener('click', leaveOnlineRoom);
