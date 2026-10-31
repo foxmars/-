@@ -8,7 +8,7 @@ const originalFinish = finish;
 const originalPause = pause;
 // A short jitter buffer smooths normal packet variation without adding a
 // large amount of fighting-game input latency.
-const INPUT_DELAY = 6;
+const INPUT_DELAY = 3;
 const onlineState = {
   socket: null,
   role: null,
@@ -106,8 +106,8 @@ function frameInputPacket(frames) {
 }
 function adaptInputDelay(rttMs) {
   if (!Number.isFinite(rttMs)) return;
-  // RTT covers both directions, so reserve half an RTT plus two jitter frames.
-  const wanted = Math.max(4, Math.min(12, Math.ceil(rttMs / (2000 / 60)) + 2));
+  // Each player's input travels one way. Budget half the RTT and one jitter frame.
+  const wanted = Math.max(3, Math.min(10, Math.ceil(rttMs / (2000 / 60)) + 1));
   const now = Date.now();
   if (wanted > onlineState.inputDelay) {
     onlineState.inputDelay = wanted;
@@ -202,12 +202,12 @@ function showOnlineTab(tab) {
 function renderRooms(rooms) {
   const list = onlineEl('#rooms-list');
   list.replaceChildren();
-  if (!rooms.length) { list.textContent = '暂无公开服务器。'; return; }
+  if (!rooms.length) { list.textContent = '目前没有可加入的房间。点「创建房间」开一局。'; return; }
   for (const room of rooms) {
     const button = document.createElement('button');
     button.type = 'button'; button.className = 'room-item';
     const title = document.createElement('strong'), meta = document.createElement('span');
-    title.textContent = room.name; meta.textContent = `${room.format.replace('v', ' vs ')} · ${room.players}/${room.maxPlayers} 人${room.started ? ' · 对战中' : ''}`;
+    title.textContent = room.name; meta.textContent = `${room.format.replace('v', ' vs ')} · ${room.players}/${room.maxPlayers} 人 · ${room.started ? '对战中' : room.players >= room.maxPlayers ? '已满' : '点击加入'}`;
     button.append(title, meta); button.disabled = room.started || room.players >= room.maxPlayers;
     button.onclick = () => { onlineEl('#room-code').value = room.code; onlineEl('#room-password').value = ''; openRoomSocket('join', room.code); };
     list.append(button);
@@ -217,19 +217,22 @@ function renderRoster(message) {
   onlineState.roster = message;
   const room = message.room, seats = message.seats || [], list = onlineEl('#room-roster');
   onlineEl('#lobby-title').textContent = `${room.name} · ${room.format.replace('v', ' vs ')}`;
-  onlineEl('#lobby-count').textContent = `${room.players}/${room.maxPlayers} 人 · ${room.code}`;
+  onlineEl('#lobby-count').textContent = `${room.players}/${room.maxPlayers} 人 · 房间码 ${room.code}`;
   list.replaceChildren();
   seats.forEach((player, seat) => {
     const item = document.createElement('div'); item.className = 'room-seat';
     const team = seat < Number(room.format[0]) ? 1 : 2;
-    item.textContent = `队伍 ${team} · ${player ? `${player.name} / ${characters[player.character]?.name || '斗士'}` : '等待加入…'}`;
+    item.textContent = `队伍 ${team} · ${player ? `${player.name}${seat === onlineState.seat ? '（你）' : ''} / ${characters[player.character]?.name || '斗士'}` : '等待玩家加入'}`;
     if (seat === onlineState.seat) item.classList.add('you');
     list.append(item);
   });
   const ready = seats.every(Boolean);
   onlineEl('#room-start').hidden = onlineState.role !== 'host';
   onlineEl('#room-start').disabled = !ready;
-  onlineEl('#room-start').textContent = ready ? '开始对战' : `等待玩家 ${room.players}/${room.maxPlayers}`;
+  onlineEl('#room-start').textContent = ready ? '全部到齐，开始对战' : `还差 ${room.maxPlayers - room.players} 人`;
+  onlineEl('#lobby-help').textContent = onlineState.role === 'host'
+    ? ready ? '所有玩家已到齐。选好角色后，点击「开始对战」。' : `把房间码 ${room.code} 发给同学；所有位置坐满后就能开始。`
+    : '选择角色后等待房主开始；你的选择会自动同步。';
 }
 function enterOnlineMode() {
   if (state === 'playing') return;
@@ -240,7 +243,7 @@ function enterOnlineMode() {
   onlineEl('#overlay').hidden = false;
   onlineEl('#overlay .eyebrow').textContent = '在线服务器';
   onlineEl('#overlay h1').textContent = '服务器列表';
-  onlineEl('#overlay p').textContent = '帧同步对战，优先 UDP 直连；网络受限时自动通过服务器转发。';
+  onlineEl('#overlay p').textContent = '选择房间加入，或创建房间邀请同学。';
   onlineEl('#start').hidden = true;
   onlineEl('#localhelp').hidden = true;
   onlineEl('#mode').disabled = false;
@@ -299,7 +302,7 @@ function connectRoomSocket(onOpen) {
   try { socket = new WebSocket(address); }
   catch { setRoomStatus('服务器地址无效，无法连接。', true); return; }
   onlineState.socket = socket;
-  socket.addEventListener('open', () => { sendRoomMessage({ type: 'list' }); onOpen?.(); setRoomStatus('已连接服务器。'); });
+  socket.addEventListener('open', () => { sendRoomMessage({ type: 'list' }); setRoomStatus('已连接，选择房间加入或创建房间。'); onOpen?.(); });
   socket.addEventListener('message', event => {
     let message;
     try { message = JSON.parse(event.data); } catch { return; }
