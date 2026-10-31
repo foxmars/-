@@ -37,7 +37,9 @@ const onlineState = {
   lastRelayedFrame: -1,
   queuedButtons: 0,
   lastProgressAt: 0,
-  lastRecoveryAt: 0
+  lastRecoveryAt: 0,
+  introReady: false,
+  fightStarted: false
 };
 const onlineEl = selector => document.querySelector(selector);
 const defaultServerAddress = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
@@ -402,6 +404,14 @@ function connectRoomSocket(onOpen) {
       if (onlineRoomSize() === 2) startPeerConnection().catch(() => setRoomStatus('UDP 直连建立失败，正在通过服务器帧同步。', true));
       else setRoomStatus(`${message.format.replace('v', ' vs ')} 对战开始 · ${onlineRoomSize()} 人`);
 
+    } else if (message.type === 'fight') {
+      if (!onlineState.fightStarted && (onlineState.role === 'host' || onlineState.role === 'guest')) {
+        onlineState.fightStarted = true;
+        resetFrameSync();
+        onlineEl('#countdown').hidden = true;
+        setRoomStatus('双方准备完成，开始对战。');
+      }
+
     } else if (message.type === 'frameInputs' && (onlineState.role === 'host' || onlineState.role === 'guest')) {
       if (onlineRoomSize() > 2) receiveSeatInputs(message.seat, message.frames);
       else receiveFrameInputs(message.frames);
@@ -465,6 +475,8 @@ start = function onlineStart() {
     return fighter(seat, character, team, slots[team]++);
   });
   resetFrameSync();
+  onlineState.introReady = false;
+  onlineState.fightStarted = false;
   if (onlineRoomSize() > 2) onlineTeamHud(); else hud();
   setRoomStatus('正在建立玩家直连…');
 };
@@ -490,6 +502,20 @@ controls = function onlineControls(p) {
 update = function onlineUpdate() {
   if ($('#mode').value !== 'online' || (onlineState.role !== 'host' && onlineState.role !== 'guest') || state !== 'playing') {
     originalUpdate();
+    return;
+  }
+  if (!onlineState.fightStarted) {
+    if (!onlineState.introReady) {
+      originalUpdate();
+      if (entranceFrames === 0 && readyFrames === 0 && countdownFrames === 0) {
+        onlineState.introReady = true;
+        goFrames = 0;
+        onlineEl('#countdown').hidden = false;
+        onlineEl('#countdown').querySelector('strong').textContent = '等待玩家';
+        sendRoomMessage({ type: 'introReady' });
+        setRoomStatus('入场完成，等待其他玩家准备…');
+      }
+    }
     return;
   }
   // A missing packet must not let captured inputs run ever farther ahead of

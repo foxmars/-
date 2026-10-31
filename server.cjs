@@ -355,7 +355,7 @@ function handleMessage(socket, data) {
     if (room.maxPlayers === 2) send(room.clients[1 - socket.seat], { type: 'signal', data: message.data });
     return;
   } else if (message.type === 'frameInputs') {
-    if (!room.started || !Array.isArray(message.frames) || message.frames.length > 8) return;
+    if (!room.started || !room.fightStarted || !Array.isArray(message.frames) || message.frames.length > 8) return;
     const frames = message.frames.filter(frame => Array.isArray(frame) && Number.isSafeInteger(frame[0]) && frame[0] >= 0 && Number.isInteger(frame[1]) && frame[1] >= 0 && frame[1] <= 255);
     if (frames.length) for (const client of room.clients) if (client && client !== socket) send(client, { type: 'frameInputs', seat: socket.seat, frames });
     return;
@@ -366,8 +366,17 @@ function handleMessage(socket, data) {
     if (room.clients.slice(0, required).some(client => !client || client.readyState !== WebSocket.OPEN)) { sendError(socket, `需要 ${required} 位玩家全部加入。`); return; }
     if (room.teams.filter(team => team === 0).length !== formats[room.format][0] || room.teams.filter(team => team === 1).length !== formats[room.format][1]) { sendError(socket, '请先按组队模式分配好双方人数。'); return; }
     room.started = true;
+    room.fightStarted = false;
+    room.introReady = Array(required).fill(false);
     broadcast(room, { type: 'started', room: room.code, characters: room.characters.slice(0, required), names: room.names.slice(0, required), teams: room.teams.slice(0, required), format: room.format });
     broadcastList();
+  } else if (message.type === 'introReady') {
+    if (!room.started || room.fightStarted || !room.introReady || socket.seat >= room.introReady.length) return;
+    room.introReady[socket.seat] = true;
+    if (room.introReady.every(Boolean)) {
+      room.fightStarted = true;
+      broadcast(room, { type: 'fight' });
+    }
   } else if (message.type === 'input') {
     if (socket.seat !== 1 || !room.started) return;
     const allowed = new Set(['arrowleft', 'arrowright', 'arrowup', '1', '2', '3']);
