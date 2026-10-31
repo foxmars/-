@@ -35,7 +35,9 @@ const onlineState = {
   lastScheduledFrame: INPUT_DELAY - 1,
   lastDelayAdjust: 0,
   lastRelayedFrame: -1,
-  queuedButtons: 0
+  queuedButtons: 0,
+  lastProgressAt: 0,
+  lastRecoveryAt: 0
 };
 const onlineEl = selector => document.querySelector(selector);
 const defaultServerAddress = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
@@ -103,6 +105,18 @@ function frameInputPacket(frames) {
     }
     onlineState.lastRelayedFrame = fresh[fresh.length - 1][0];
   }
+}
+function recoverMissingFrames() {
+  const now = Date.now();
+  if (now - onlineState.lastProgressAt < 500 || now - onlineState.lastRecoveryAt < 350) return;
+  if (onlineState.socket?.readyState !== WebSocket.OPEN) return;
+  // The first packets can arrive while a peer is still entering the match.
+  // Replay only the bounded pending history, so a lost startup packet cannot
+  // leave both players waiting forever at the entrance animation.
+  const pending = onlineState.inputHistory.filter(([frame]) => frame >= onlineState.simFrame);
+  for (let i = 0; i < pending.length; i += 8) sendRoomMessage({ type: 'frameInputs', frames: pending.slice(i, i + 8) });
+  onlineState.lastRecoveryAt = now;
+  if (now - onlineState.lastProgressAt > 2000) setRoomStatus('正在等待其他玩家的同步数据，已尝试重发…', true);
 }
 function adaptInputDelay(rttMs) {
   if (!Number.isFinite(rttMs)) return;
@@ -188,6 +202,8 @@ function resetFrameSync() {
   onlineState.lastScheduledFrame = onlineState.inputDelay - 1;
   onlineState.lastRelayedFrame = -1;
   onlineState.queuedButtons = 0;
+  onlineState.lastProgressAt = Date.now();
+  onlineState.lastRecoveryAt = 0;
   for (let frame = 0; frame < onlineState.inputDelay; frame++) { onlineState.localInputs.set(frame, 0); onlineState.remoteInputs.set(frame, 0); }
   onlineState.remoteBySeat = Array.from({ length: onlineRoomSize() }, (_, seat) => seat === onlineState.seat ? null : new Map());
   for (const buffer of onlineState.remoteBySeat) if (buffer) for (let frame = 0; frame < onlineState.inputDelay; frame++) buffer.set(frame, 0);
@@ -499,6 +515,7 @@ update = function onlineUpdate() {
     onlineState.queuedButtons |= captureInputBits() & 156;
   }
   frameInputPacket(onlineState.inputHistory);
+  recoverMissingFrames();
   pressed.clear();
   // After a stall, simulate at most three ready frames per display tick to
   // drain the backlog without making one render frame expensive.
@@ -518,6 +535,7 @@ update = function onlineUpdate() {
     // Hitstop lasts real display ticks, not accelerated catch-up steps.
     if (wasInHitstop) break;
     onlineState.simFrame++;
+    onlineState.lastProgressAt = Date.now();
     if (hitstop > 0 || state !== 'playing') break;
     if (onlineState.captureFrame - onlineState.simFrame <= 1) break;
   }
